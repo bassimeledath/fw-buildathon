@@ -457,6 +457,11 @@ def customer_text(st: State) -> str:
 
 
 def _attach_results(st: State):
+    """Only the latest search results stay in context (like a tool result that gets replaced), so a long call
+    doesn't carry eight article bodies per turn."""
+    for m in st.messages[:-1]:
+        if m["role"] == "user" and "\n\n[SEARCH RESULTS]" in m["content"]:
+            m["content"] = m["content"].split("\n\n[SEARCH RESULTS]")[0]
     res = search(customer_text(st))
     st.messages[-1]["content"] += "\n\n[SEARCH RESULTS]\n" + "\n\n".join(f"=== {a.doc_id}: {a.title} ===\n{a.body}" for a in res)
 
@@ -529,7 +534,7 @@ def explore(c: Case) -> dict:
             out["bad"] += 1
             return
         for a in oracle_moves(st):
-            st2 = State(st.case, copy.deepcopy(st.k), list(st.messages))
+            st2 = State(st.case, copy.deepcopy(st.k), [dict(m) for m in st.messages])
             done, o, ok = step(st2, a)
             if not ok or (done and o not in ("resolved_correct", "escalated_correct")):
                 out["bad"] += 1

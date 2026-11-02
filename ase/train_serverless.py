@@ -27,6 +27,8 @@ from training.utils.supervised import build_renderer
 from .reward import score
 from .world import DATA_DIR
 
+ENV = {"reward": None}  # set by --env; None = the original ASE reward
+
 
 def _gt(row):
     gt = row["ground_truth"]
@@ -37,6 +39,8 @@ def make_rollout_fn(setup, *, renderer_name: str = ""):
     renderer = build_renderer(setup.tokenizer, setup.tokenizer_id, renderer_name)
 
     def reward(row, message, _parsed) -> float:
+        if ENV["reward"]:
+            return ENV["reward"](get_text_content(message), _gt(row))
         return score(get_text_content(message), _gt(row))["reward"]
 
     async def rollout_fn(row):
@@ -92,7 +96,13 @@ def main():
     p.add_argument("--lora-rank", type=int, default=32)
     p.add_argument("--max-completion-tokens", type=int, default=512)
     p.add_argument("--run-dir", default="runs/rl_smoke")
+    p.add_argument("--env", default="ase", choices=["ase", "hard_v2"])
+    p.add_argument("--max-seq-len", type=int, default=8192)
     a = p.parse_args()
+    if a.env == "hard_v2":
+        from .hard_v2_train import reward as hard_v2_reward
+
+        ENV["reward"] = hard_v2_reward
     run_dir = Path(a.run_dir)
     run_dir.mkdir(parents=True, exist_ok=True)
 
@@ -105,7 +115,7 @@ def main():
         completions_per_prompt=a.completions_per_prompt,
         prompt_groups_per_step=a.prompt_groups_per_step,
         max_completion_tokens=a.max_completion_tokens,
-        max_seq_len=8192,
+        max_seq_len=a.max_seq_len,
         temperature=1.0,
         epochs=1,
         max_rows=len(train_rows),
