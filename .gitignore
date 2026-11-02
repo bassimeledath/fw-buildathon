@@ -3,3 +3,5 @@ runs/
 .env
 __pycache__/
 .dispatch/
+data/hard_v1/test/
+data/hard_v1/all/

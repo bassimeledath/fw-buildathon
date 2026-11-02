@@ -1,0 +1,20 @@
+{
+  "case_kinds": {
+    "advanced_tried": 4,
+    "basic_untried": 4,
+    "cant_identify": 4,
+    "gap_with_gate": 8,
+    "human_midchat": 4,
+    "indirect_answer": 4,
+    "later_correction": 4,
+    "no_article": 12,
+    "no_article_after_clarify": 8,
+    "policy_escalation": 4,
+    "prereq_bait": 8,
+    "tentative_guess": 4
+  },
+  "n_articles": 28,
+  "n_cases": 68,
+  "n_per_type": 10,
+  "seed": 41
+}
