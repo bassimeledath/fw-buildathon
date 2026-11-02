@@ -217,6 +217,15 @@ TRIED_TEXT = [  # the customer reports the basic checks, so the advanced article
     "I've rebooted it twice and gone through the settings already",
     "did the restart thing already and the settings look normal",
 ]
+# ASE_SHARD: the same TRIED_TEXT fact, volunteered late instead of in the opening. Reusing the exact
+# phrases keeps the FIXED retriever's aliases valid and makes the concat control the same bytes.
+SHARD_PREFIX = [
+    "Oh, I should have mentioned — ",
+    "Sorry, I forgot to say: ",
+    "One thing I didn't mention earlier: ",
+]
+SHARD_FILLER_CONFLICT = "My friend said to restart it, but I haven't yet."  # contradicts a tried shard
+
 DEVICE_CLUE = {  # second answer from a customer who does not know the model
     "iphone": "I get my apps from the App Store and it unlocks with Face ID",
     "android": "I get my apps from the Google Play Store",

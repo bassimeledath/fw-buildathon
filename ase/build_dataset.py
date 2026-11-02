@@ -38,7 +38,9 @@ def oracle_query(state, rng: random.Random, noisy: bool) -> str:
 
 def oracle_action(state, rng: random.Random, p_noise: float = 0.3) -> dict:
     allowed = allowed_actions(state, KB)
-    kind = rng.choice(sorted(allowed))
+    kind = rng.choice(sorted(allowed))  # drawn even when overridden below, to keep the stream aligned
+    if state.case.extra.get("shard_slot") and not state.case.extra.get("shard_fired") and "search" in allowed:
+        kind = "search"  # the shard fires on the first search; get there so post-shard states exist
     if kind == "escalate":
         return {"action": "escalate", "reason": allowed[kind]["reason"], "reply": "Let me connect you."}
     if kind == "resolve":
@@ -50,12 +52,16 @@ def oracle_action(state, rng: random.Random, p_noise: float = 0.3) -> dict:
     return {"action": "search", "query": oracle_query(state, rng, noisy=rng.random() < p_noise)}
 
 
-def rollout_states(case, rng: random.Random, max_steps: int = 6) -> list[dict]:
+ROLLOUT_STEPS = 12 if HARD else 8  # match the episode budget so the dataset covers the same states
+
+
+def rollout_states(case, rng: random.Random, max_steps: int = ROLLOUT_STEPS) -> list[dict]:
     state = new_state(case, rng)
     rows = []
     for t in range(max_steps):
         gt = ground_truth(state, KB)
-        rows.append({"messages": to_prompt(state), "ground_truth": gt, "step": t})
+        rows.append({"messages": to_prompt(state), "ground_truth": gt, "step": t,
+                     "shard_fired": bool(case.extra.get("shard_fired"))})
         done, _ = step(state, oracle_action(state, rng), RETRIEVER, rng)
         if done:
             break
@@ -83,7 +89,7 @@ def main():
             split = "test" if rng.random() < 0.2 else "train"
         snap = {"case_id": case.case_id, "seed": rng.randrange(1 << 30), "revealed": dict(case.revealed),
                 "extra": dict(case.extra), **{k: case.__dict__[k] for k in ("platform", "symptom", "trigger", "escalation")}}
-        rows = rollout_states(case, rng)
+        rows = rollout_states(case, random.Random(snap["seed"]))
         if any("retrieval_miss" in r["ground_truth"]["allowed"] for r in rows):
             dropped += 1  # fixed retrieval missed the article (~0.05% of hard cases); keep the set fair
             continue

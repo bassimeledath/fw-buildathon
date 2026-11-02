@@ -17,8 +17,11 @@ from .world import (
     GATED,
     FIXED,
     HARD,
+    SHARD,
     PLATFORMS,
     SYMPTOM_SPECIFIC,
+    SHARD_FILLER_CONFLICT,
+    SHARD_PREFIX,
     SYMPTOM_VAGUE,
     SYMPTOMS,
     TRIED_TEXT,
@@ -34,6 +37,7 @@ from .world import (
 )
 
 RESULTS_K = 5 if HARD or FIXED else 3
+P_SHARD = 0.75  # share of "already tried" cases that volunteer it late instead of up front
 
 SYSTEM_PROMPT = """You are a tech-support agent for a phone carrier, talking to a customer. Each turn, output exactly one JSON object and nothing else. The four possible actions:
 
@@ -157,6 +161,18 @@ def sample_case(rng: random.Random, case_id: str, p_escalate: float = 0.2) -> Ca
             "backed_up": rng.random() < 0.6,
             "vague_device": dev_level != "specific" and fam != "router" and rng.random() < 0.4,
         }
+        # Take the shard decision from a side RNG keyed on the case id, so the main stream is
+        # untouched and data_hard_s holds the SAME cases as data_hard -- stage comparisons stay
+        # paired. The fact is still true at resolve either way, so the tier mix is identical by
+        # construction; only its delivery moves from the opening to mid-conversation.
+        if SHARD and extra["tried"] and random.Random(case_id + "-shard").random() < P_SHARD:
+            srng = random.Random(case_id + "-shard-text")
+            extra["tried"] = False  # withheld from the opening; maybe_shard() restores it
+            extra["shard_slot"] = "tried"
+            extra["shard_value"] = True
+            extra["shard_text"] = srng.choice(SHARD_PREFIX) + srng.choice(TRIED_TEXT) + "."
+            extra["shard_fired"] = False
+            extra["shard_turn"] = None
     return Case(case_id, plat, sym, trig, revealed=revealed, extra=extra)
 
 
@@ -181,7 +197,10 @@ def render_opening(case: Case, rng: random.Random) -> str:
         parts.append(rng.choice(TRIGGER_TEXT[case.trigger]).capitalize() + ".")
     if case.extra.get("tried"):
         parts.append(rng.choice(TRIED_TEXT).capitalize() + ".")
-    parts.append(rng.choice(FILLER))
+    filler = rng.choice(FILLER)
+    if case.extra.get("shard_slot") == "tried" and filler == SHARD_FILLER_CONFLICT:
+        filler = ""  # would make the customer contradict its own shard
+    parts.append(filler)
     return " ".join(p for p in parts if p)
 
 
@@ -232,6 +251,23 @@ class State:
         return Case(**{**self.case.__dict__, "revealed": dict(self.case.revealed), "extra": dict(self.case.extra)})
 
 
+def maybe_shard(state: State) -> bool:
+    """Volunteer the withheld fact once the agent has committed to retrieved results."""
+    c = state.case
+    slot = c.extra.get("shard_slot")
+    if not slot or c.extra.get("shard_fired") or not state.seen_ids:
+        return False
+    c.extra["shard_fired"] = True
+    if slot in c.revealed:  # would contradict an answer already given
+        c.extra["shard_defused"] = True
+        return False
+    c.extra[slot] = c.extra["shard_value"]  # moves the gold article
+    c.extra["shard_turn"] = sum(m["role"] == "assistant" for m in state.messages)
+    state.messages.append({"role": "user", "content": "[CUSTOMER] " + c.extra["shard_text"]})
+    state.searched_since_answer = False  # a new fact invalidates the last search
+    return True
+
+
 def _allowed_hard(state: State, kb: list[Article]) -> dict:
     case = state.case
     if case.escalation:
@@ -244,7 +280,9 @@ def _allowed_hard(state: State, kb: list[Article]) -> dict:
         if "damage" not in case.revealed and all(a.symptom in GATED for a in cands):
             slots.append("damage")  # every remaining article opens with the damage question
         out = {"ask": {"slots": slots}}
-        if not state.searched_since_answer and not state.seen_ids:
+        # seen_ids only grows, so without the shard clause a post-shard re-search -- the behaviour the
+        # mechanism exists to reward -- would score WRONG_TYPE_CREDIT.
+        if not state.searched_since_answer and (not state.seen_ids or case.extra.get("shard_fired")):
             out["search"] = {"gold": gold_article(case, kb).doc_id, "candidates": [a.doc_id for a in cands]}
         return out
     art = cands[0]
@@ -300,6 +338,8 @@ def ground_truth(state: State, kb: list[Article]) -> dict:
         "gold_doc": gold.doc_id if gold else None,
         "escalation": c.escalation,
         "n_candidates": len(candidates(c, kb)),
+        # survives calibrate.py's band writer, which keeps only messages + ground_truth
+        "post_shard": bool(c.extra.get("shard_fired")) and not c.extra.get("shard_defused"),
         "seen_ids": sorted(state.seen_ids),
     }
 
@@ -344,11 +384,13 @@ def step(state: State, action: dict, retriever: Retriever, rng: random.Random) -
         state.seen_ids |= {a.doc_id for a in res}
         state.searched_since_answer = True
         state.messages.append({"role": "user", "content": format_results(res)})
+        maybe_shard(state)
         return False, "search"
     if kind == "ask":
         reply, _ = customer_answer(state.case, str(action.get("slot", "")), rng)
         state.searched_since_answer = False
         state.messages.append({"role": "user", "content": "[CUSTOMER] " + reply})
+        maybe_shard(state)  # before auto_search, so fixed retrieval sees the new fact
         if FIXED:
             auto_search(state)
         return False, "ask"
