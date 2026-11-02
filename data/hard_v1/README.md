@@ -22,14 +22,11 @@ don't commit it. Final numbers are reported on test.
 **Fairness:** the oracle solves every case, every path the answer key allows ends correct (280 paths), and search
 always shows the article the key needs. Run `python -m ase.hard_sol --oracle-only` to re-check.
 
-**Baselines on the full set (170 cases, temperature 0):**
+**Baselines (temperature 0, prompt as published):**
 
-| Model | Reasoning | Success |
-|---|---|---|
-| deepseek-v4p1-flash | off | 45% (0% on all no-article types) |
-
-That run predates the one-line definition of `no_article` and `cant_identify` that's now in the prompt. Re-run it
-before quoting the number.
+| Model | Reasoning | Dev (68) | Test (102) | Weakest |
+|---|---|---|---|---|
+| deepseek-v4p1-flash | off | 47% | **47%** | 0% on all three no-article types: picks the near-match |
 
 **Run it:**
 ```bash
