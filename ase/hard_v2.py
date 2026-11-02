@@ -402,6 +402,8 @@ def reply(st: State, a: dict) -> str:
             k["brand"] = True
             return f"It's a {_r(c, 'model').choice(BRAND[c.brand])}."
         if slot == "consent":
+            if k.get("consent"):  # asking again isn't an instruction; the customer says so
+                return "I already said yes. Should I try it again?"
             k["consent"] = True
             return "Okay, go ahead."
         if slot == "symptom":
