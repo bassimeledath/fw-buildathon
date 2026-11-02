@@ -226,6 +226,17 @@ SHARD_PREFIX = [
 ]
 SHARD_FILLER_CONFLICT = "My friend said to restart it, but I haven't yet."  # contradicts a tried shard
 
+# ASE_NOISE_FACTS: a second device the customer mentions and explicitly sets aside. Each names words
+# from PLATFORM_TERMS, so a query that keeps it pulls the wrong cell into the top 5. Always marked
+# secondary, so the correct action stays unambiguous.
+DISTRACTOR_TEXT = {
+    "iphone": "My iPhone has its own problems, but that's not why I'm calling.",
+    "android": "My Samsung Galaxy is acting up too, but that's a separate thing.",
+    "windows": "My Windows laptop is playing up as well, but that's not what I need help with.",
+    "mac": "My MacBook has a problem too, but that's separate.",
+    "router": "My Wi-Fi router keeps dropping out too, but that's not why I'm calling.",
+}
+
 DEVICE_CLUE = {  # second answer from a customer who does not know the model
     "iphone": "I get my apps from the App Store and it unlocks with Face ID",
     "android": "I get my apps from the Google Play Store",

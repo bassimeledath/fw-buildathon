@@ -17,9 +17,11 @@ from .world import (
     GATED,
     FIXED,
     HARD,
+    NOISE_FACTS,
     SHARD,
     PLATFORMS,
     SYMPTOM_SPECIFIC,
+    DISTRACTOR_TEXT,
     SHARD_FILLER_CONFLICT,
     SHARD_PREFIX,
     SYMPTOM_VAGUE,
@@ -38,6 +40,7 @@ from .world import (
 
 RESULTS_K = 5 if HARD or FIXED else 3
 P_SHARD = 0.75  # share of "already tried" cases that volunteer it late instead of up front
+P_NOISE = 0.4  # share of cases carrying a second, explicitly set-aside device
 
 SYSTEM_PROMPT = """You are a tech-support agent for a phone carrier, talking to a customer. Each turn, output exactly one JSON object and nothing else. The four possible actions:
 
@@ -161,6 +164,11 @@ def sample_case(rng: random.Random, case_id: str, p_escalate: float = 0.2) -> Ca
             "backed_up": rng.random() < 0.6,
             "vague_device": dev_level != "specific" and fam != "router" and rng.random() < 0.4,
         }
+        if NOISE_FACTS and random.Random(case_id + "-noise").random() < P_NOISE:
+            # A device from another family, so it can never be confused with the real cell.
+            decoy = random.Random(case_id + "-decoy").choice(
+                [p for p in PLATFORMS if PLATFORMS[p]["family"] != fam])
+            extra["distractor"] = DISTRACTOR_TEXT[decoy]
         # Take the shard decision from a side RNG keyed on the case id, so the main stream is
         # untouched and data_hard_s holds the SAME cases as data_hard -- stage comparisons stay
         # paired. The fact is still true at resolve either way, so the tier mix is identical by
@@ -200,6 +208,7 @@ def render_opening(case: Case, rng: random.Random) -> str:
     filler = rng.choice(FILLER)
     if case.extra.get("shard_slot") == "tried" and filler == SHARD_FILLER_CONFLICT:
         filler = ""  # would make the customer contradict its own shard
+    filler = case.extra.get("distractor", filler)  # draw above already consumed, so cases stay paired
     parts.append(filler)
     return " ".join(p for p in parts if p)
 

@@ -10,6 +10,7 @@ stages is therefore valid.
 | hard (baseline) | 0.796 | 0.917 | 12.1 | 1.000 | 0.535 |
 | hard + shard (null, dropped) | 0.815 | 0.924 | 10.9 | 1.000 | 0.535 |
 | **hard + budget 6** | **0.688** | **0.892** | **20.4** | 1.000 | **0.236** |
+| hard + budget 6 + noise | 0.650 | 0.892 | 24.2 | 1.000 | — |
 
 Sharding is off by default and is not carried forward; `hard` is the base for later stages.
 
@@ -103,3 +104,34 @@ never exceeds 6, so the separation is structural rather than tuned. It drops 0.5
 From the means — gpt-oss ~3.5 agent turns, kimi ~3.2, both well under 6 — I expected the budget not to
 touch the models. It cost gpt-oss 10.8 points. **Means hide the tail**: 14% of its episodes run past 6
 turns. Calibrate budgets on the distribution, not the average.
+
+## Stage 3 — irrelevant information (`ASE_NOISE_FACTS=1`): weak, but it moves the failure mode
+
+40% of cases mention a second device from another family and explicitly set it aside ("My Wi-Fi router
+keeps dropping out too, but that's not why I'm calling"). Each distractor names words from
+`PLATFORM_TERMS`, so a query that keeps it pulls the wrong cell into the top 5.
+
+**Offline acceptance gate, before any model run.** For the 54 affected test cases, the gold article is
+outside the top 5 on a naive whole-opening query in **69%** of them (median rank 8), but outside on a
+clean device+symptom+trigger query in only **6%**. That gap is the skill under test, quantified
+without spending anything.
+
+| Model | budget 6 → +noise | McNemar p | 95% CI |
+|---|---|---|---|
+| gpt-oss-120b | 68.8% → 65.0% | 0.263 | [−9.6, +1.9] |
+| kimi-k3 | 89.2% → 89.2% | 1.0 | [−2.5, +2.5] |
+
+Neither is significant. As predicted in `HARDER_EVAL_DESIGN.md`, this is the weakest of the mechanisms.
+
+**But the composition changed.** gpt-oss's wrong-fix rate rose **0.136 → 0.212** while its abandonment
+*fell* 0.140 → 0.096. Success barely moved because the two offset: a polluted search reaches a
+confident wrong answer faster than a careful one reaches a right answer. For a support product that
+trade is a loss, not a wash — a wrong fix costs more than an abandoned chat.
+
+**kimi was untouched, at exactly 0.0 (2 cases each way).** Given the gate shows the gold is displaced
+in 69% of these cases *for a naive query*, the conclusion is that kimi does not issue naive queries: it
+excludes the set-aside device from its search. So the mechanism does discriminate — on **query
+discipline** — and the frontier model simply has it.
+
+Not decomposed into the retrieval and turn channels (a `hard + noise` run without the budget). That was
+contingent on the effect being worth splitting, and it is not.
