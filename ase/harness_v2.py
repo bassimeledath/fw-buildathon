@@ -48,7 +48,30 @@ How to run the call:
 9. When a step seems to have worked, verify: ask the customer to do the article's check. Only resolve after the check passes. A step can look like it worked before it really has; if the check fails, go on to the next fix.
 10. When every fix in the article has been done or tried and the problem remains, escalate with fix_failed."""
 
-PROMPTS = {"base": hv.SYSTEM, "h1": H1_PROMPT}
+# Kabir's hard_v2 rules (branch kabir/harness-improvements, ase/hard_v2_harness.py), copied verbatim so both
+# harnesses run under the same runner, cases and scoring. kport = his v2port, krhythm = his v2rhythm.
+K_PORT = (
+    "\n- Use only the article for the customer's exact phone, problem and current software. Copies written for "
+    "older software, in-store versions, the other platform's article and how-to pages do not fit, even if they "
+    "look close."
+    "\n- Never repeat a step the customer already did or says is already on. Once every step in the article, "
+    "including its \"Still not working?\" section, has failed, escalate fix_failed."
+)
+K_RHYTHM = (
+    "\n- Give each fix as a \"step\". If the customer can't find a menu, did something else, or couldn't finish "
+    "it, give the same \"step\" again (same doc_id and step name) with clearer words. Use \"verify\" only right "
+    "after the customer says they did the step, to check whether the problem is fixed. If they already said it "
+    "didn't help, give the next step instead of verifying."
+)
+
+PROMPTS = {
+    "base": hv.SYSTEM,
+    "h1": H1_PROMPT,
+    "kport": hv.SYSTEM + K_PORT,
+    "krhythm": hv.SYSTEM + K_RHYTHM,
+    # combined: h1 already covers v2port (rules 2, 4, 10), so add only Kabir's step/verify rhythm rule
+    "h1k": H1_PROMPT + "\n11. Step vs verify:" + K_RHYTHM.removeprefix("\n-"),
+}
 
 
 def _verified_last(messages: list[dict]) -> bool:
