@@ -24,6 +24,8 @@ def load(path: str) -> dict:
     out = {}
     for line in open(path):
         r = json.loads(line)
+        if r.get("outcome") in ("api_error", "invalid") and "error" in r:
+            continue  # the API failed, the model never saw the case; pairing drops it
         if "outcome" in r:  # episode log
             out[r["case_id"]] = (r["case_id"], r["outcome"] in SUCCESS)
         else:  # calibrate sample: first draw, full credit

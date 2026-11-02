@@ -40,7 +40,7 @@ class LLMPolicy:
     def __init__(self, model: str, base_url: str, api_key: str, temperature: float, max_tokens: int):
         from openai import AsyncOpenAI
 
-        self.client = AsyncOpenAI(base_url=base_url, api_key=api_key)
+        self.client = AsyncOpenAI(base_url=base_url, api_key=api_key, max_retries=8)  # backs off on 429s
         self.model, self.temperature, self.max_tokens = model, temperature, max_tokens
 
     async def __call__(self, messages, gt):
@@ -91,6 +91,8 @@ async def run_episode(e: dict, policy) -> dict:
 
 
 def summarize(logs: list[dict]) -> dict:
+    api_errors = sum(x["outcome"] == "api_error" for x in logs)
+    logs = [x for x in logs if x["outcome"] != "api_error"]  # scored on the cases the model actually saw
     n = len(logs)
     fix = [x for x in logs if not x["escalation"]]
     esc = [x for x in logs if x["escalation"]]
@@ -101,6 +103,7 @@ def summarize(logs: list[dict]) -> dict:
     lats = [lat for x in logs for lat in x["lat"]]
     return {
         "n": n,
+        "api_errors": api_errors,
         "success": rate(logs, "resolved_correct", "escalated_correct"),
         "fix_rate": rate(fix, "resolved_correct"),
         "wrong_fix_rate": rate(fix, "resolved_wrong"),
@@ -140,8 +143,8 @@ async def amain(args):
         async with sem:
             try:
                 return await run_episode(e, policy)
-            except Exception as ex:  # keep the batch going; count as invalid
-                return {"case_id": e["case_id"], "escalation": e["escalation"], "outcome": "invalid", "asks": 0,
+            except Exception as ex:  # keep the batch going; an API failure is not a model failure
+                return {"case_id": e["case_id"], "escalation": e["escalation"], "outcome": "api_error", "asks": 0,
                         "wasted_asks": 0, "searches": 0, "lat": [], "ptok": 0, "ctok": 0, "error": repr(ex)[:300]}
 
     logs = await asyncio.gather(*[one(e) for e in cases])

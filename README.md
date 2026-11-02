@@ -8,6 +8,7 @@ articles, **resolve** only with the exact article, or **escalate** (damage, safe
 a human). The world is synthetic, so every label is known by construction and the reward is pure
 code.
 
+- `docs/EVALS_EXPLAINED.md`: start here. How grading works in plain words, real graded conversations, ideas to make it harder
 - `docs/ARCHITECTURE.md`: actions, oracle, reward, sample flows (3 pages)
 - `docs/SPIKE_HARD_WORLD.md`: the harder, KB-grounded world and its fairness checks
 - `PLAN.md`: design, reward, results so far, Fireworks gotchas, next steps
