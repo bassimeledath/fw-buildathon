@@ -1,0 +1,5 @@
+rank_bm25
+openai
+pydantic
+python-dotenv
+fireworks-ai[training]>=1.2.30

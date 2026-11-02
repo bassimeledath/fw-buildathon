@@ -1,0 +1,109 @@
+{"case_id": "c0000", "seed": 461060838, "revealed": {"device": "specific", "symptom": "specific", "trigger": "specific"}, "platform": "android", "symptom": "texts_failing", "trigger": "pictures_group", "escalation": null}
+{"case_id": "c0014", "seed": 738749191, "revealed": {"device": "specific", "symptom": "vague", "trigger": null}, "platform": "windows", "symptom": "battery_drain", "trigger": "after_update", "escalation": null}
+{"case_id": "c0026", "seed": 957401070, "revealed": {}, "platform": null, "symptom": null, "trigger": null, "escalation": "safety"}
+{"case_id": "c0028", "seed": 89479104, "revealed": {}, "platform": null, "symptom": null, "trigger": null, "escalation": "physical_damage"}
+{"case_id": "c0034", "seed": 562230467, "revealed": {}, "platform": null, "symptom": null, "trigger": null, "escalation": "physical_damage"}
+{"case_id": "c0039", "seed": 1067462116, "revealed": {}, "platform": null, "symptom": null, "trigger": null, "escalation": "safety"}
+{"case_id": "c0043", "seed": 331525068, "revealed": {"device": null, "symptom": "specific", "trigger": null}, "platform": "router", "symptom": "no_internet", "trigger": null, "escalation": null}
+{"case_id": "c0045", "seed": 1070113091, "revealed": {"device": null, "symptom": "vague", "trigger": "specific"}, "platform": "android", "symptom": "battery_drain", "trigger": "after_update", "escalation": null}
+{"case_id": "c0048", "seed": 844651914, "revealed": {"device": null, "symptom": "specific", "trigger": "specific"}, "platform": "iphone", "symptom": "no_cell_data", "trigger": "new_sim", "escalation": null}
+{"case_id": "c0054", "seed": 285467488, "revealed": {"device": "specific", "symptom": "vague", "trigger": null}, "platform": "iphone", "symptom": "calls_dropping", "trigger": "at_home", "escalation": null}
+{"case_id": "c0057", "seed": 730180006, "revealed": {"device": "family", "symptom": "vague", "trigger": "specific"}, "platform": "iphone", "symptom": "app_crashing", "trigger": "one_app", "escalation": null}
+{"case_id": "c0058", "seed": 67573976, "revealed": {}, "platform": null, "symptom": null, "trigger": null, "escalation": "billing"}
+{"case_id": "c0060", "seed": 31856589, "revealed": {"device": "specific", "symptom": "vague", "trigger": null}, "platform": "iphone", "symptom": "wifi_wont_connect", "trigger": "one_network", "escalation": null}
+{"case_id": "c0061", "seed": 271979563, "revealed": {"device": "specific", "symptom": "vague", "trigger": null}, "platform": "iphone", "symptom": "calls_dropping", "trigger": "everywhere", "escalation": null}
+{"case_id": "c0065", "seed": 1056282710, "revealed": {"device": null, "symptom": "vague", "trigger": null}, "platform": "iphone", "symptom": "texts_failing", "trigger": "pictures_group", "escalation": null}
+{"case_id": "c0072", "seed": 428462208, "revealed": {}, "platform": null, "symptom": null, "trigger": null, "escalation": "safety"}
+{"case_id": "c0074", "seed": 226090706, "revealed": {}, "platform": null, "symptom": null, "trigger": null, "escalation": "human_request"}
+{"case_id": "c0083", "seed": 218627946, "revealed": {"device": "specific", "symptom": "specific", "trigger": null}, "platform": "windows", "symptom": "storage_full", "trigger": null, "escalation": null}
+{"case_id": "c0101", "seed": 171112729, "revealed": {"device": "family", "symptom": "specific", "trigger": null}, "platform": "iphone", "symptom": "wont_charge", "trigger": null, "escalation": null}
+{"case_id": "c0111", "seed": 826951167, "revealed": {"device": null, "symptom": "specific", "trigger": "specific"}, "platform": "iphone", "symptom": "battery_drain", "trigger": "no_change", "escalation": null}
+{"case_id": "c0112", "seed": 898212995, "revealed": {"device": "specific", "symptom": "vague", "trigger": "specific"}, "platform": "iphone", "symptom": "no_cell_data", "trigger": "no_change", "escalation": null}
+{"case_id": "c0113", "seed": 122090721, "revealed": {"device": "specific", "symptom": "specific", "trigger": null}, "platform": "android", "symptom": "texts_failing", "trigger": "all_texts", "escalation": null}
+{"case_id": "c0116", "seed": 876437421, "revealed": {"device": "family", "symptom": "specific", "trigger": null}, "platform": "android", "symptom": "storage_full", "trigger": null, "escalation": null}
+{"case_id": "c0119", "seed": 261011713, "revealed": {"device": "specific", "symptom": "specific", "trigger": null}, "platform": "android", "symptom": "no_cell_data", "trigger": "new_sim", "escalation": null}
+{"case_id": "c0141", "seed": 559977414, "revealed": {"device": "specific", "symptom": "specific", "trigger": null}, "platform": "router", "symptom": "no_internet", "trigger": null, "escalation": null}
+{"case_id": "c0143", "seed": 380205967, "revealed": {"device": "specific", "symptom": "specific", "trigger": null}, "platform": "android", "symptom": "storage_full", "trigger": null, "escalation": null}
+{"case_id": "c0144", "seed": 619695491, "revealed": {}, "platform": null, "symptom": null, "trigger": null, "escalation": "billing"}
+{"case_id": "c0146", "seed": 84254094, "revealed": {"device": "family", "symptom": "specific", "trigger": null}, "platform": "android", "symptom": "no_cell_data", "trigger": "new_sim", "escalation": null}
+{"case_id": "c0149", "seed": 754756821, "revealed": {"device": "specific", "symptom": "specific", "trigger": null}, "platform": "router", "symptom": "slow_internet", "trigger": "wifi_only", "escalation": null}
+{"case_id": "c0151", "seed": 1006121116, "revealed": {"device": "specific", "symptom": "specific", "trigger": null}, "platform": "windows", "symptom": "storage_full", "trigger": null, "escalation": null}
+{"case_id": "c0155", "seed": 378562555, "revealed": {"device": null, "symptom": "specific", "trigger": null}, "platform": "router", "symptom": "no_internet", "trigger": null, "escalation": null}
+{"case_id": "c0164", "seed": 76147355, "revealed": {"device": null, "symptom": "specific", "trigger": null}, "platform": "iphone", "symptom": "no_cell_data", "trigger": "abroad", "escalation": null}
+{"case_id": "c0170", "seed": 157721384, "revealed": {"device": "specific", "symptom": "specific", "trigger": "specific"}, "platform": "iphone", "symptom": "app_crashing", "trigger": "one_app", "escalation": null}
+{"case_id": "c0172", "seed": 706878849, "revealed": {"device": null, "symptom": "specific", "trigger": null}, "platform": "router", "symptom": "slow_internet", "trigger": "wifi_only", "escalation": null}
+{"case_id": "c0182", "seed": 380576335, "revealed": {"device": null, "symptom": "vague", "trigger": "specific"}, "platform": "android", "symptom": "calls_dropping", "trigger": "at_home", "escalation": null}
+{"case_id": "c0196", "seed": 674882388, "revealed": {"device": "specific", "symptom": "vague", "trigger": null}, "platform": "android", "symptom": "texts_failing", "trigger": "all_texts", "escalation": null}
+{"case_id": "c0205", "seed": 567309713, "revealed": {}, "platform": null, "symptom": null, "trigger": null, "escalation": "safety"}
+{"case_id": "c0207", "seed": 525785585, "revealed": {"device": null, "symptom": "specific", "trigger": "specific"}, "platform": "iphone", "symptom": "texts_failing", "trigger": "all_texts", "escalation": null}
+{"case_id": "c0209", "seed": 1001056453, "revealed": {"device": "specific", "symptom": "vague", "trigger": "specific"}, "platform": "router", "symptom": "slow_internet", "trigger": "wifi_only", "escalation": null}
+{"case_id": "c0215", "seed": 528009224, "revealed": {}, "platform": null, "symptom": null, "trigger": null, "escalation": "safety"}
+{"case_id": "c0223", "seed": 307990573, "revealed": {"device": "specific", "symptom": "vague", "trigger": "specific"}, "platform": "windows", "symptom": "wifi_wont_connect", "trigger": "any_network", "escalation": null}
+{"case_id": "c0225", "seed": 606889957, "revealed": {"device": "specific", "symptom": "vague", "trigger": "specific"}, "platform": "android", "symptom": "app_crashing", "trigger": "one_app", "escalation": null}
+{"case_id": "c0227", "seed": 482047737, "revealed": {"device": "specific", "symptom": "vague", "trigger": null}, "platform": "iphone", "symptom": "storage_full", "trigger": null, "escalation": null}
+{"case_id": "c0233", "seed": 271100878, "revealed": {"device": "specific", "symptom": "vague", "trigger": "specific"}, "platform": "android", "symptom": "app_crashing", "trigger": "one_app", "escalation": null}
+{"case_id": "c0238", "seed": 459308318, "revealed": {}, "platform": null, "symptom": null, "trigger": null, "escalation": "physical_damage"}
+{"case_id": "c0245", "seed": 669953497, "revealed": {}, "platform": null, "symptom": null, "trigger": null, "escalation": "physical_damage"}
+{"case_id": "c0246", "seed": 31821726, "revealed": {"device": "family", "symptom": "specific", "trigger": "specific"}, "platform": "android", "symptom": "no_cell_data", "trigger": "abroad", "escalation": null}
+{"case_id": "c0248", "seed": 252906871, "revealed": {"device": "specific", "symptom": "specific", "trigger": null}, "platform": "router", "symptom": "slow_internet", "trigger": "all_connections", "escalation": null}
+{"case_id": "c0267", "seed": 491320770, "revealed": {"device": "family", "symptom": "specific", "trigger": null}, "platform": "mac", "symptom": "wont_charge", "trigger": null, "escalation": null}
+{"case_id": "c0273", "seed": 557419971, "revealed": {"device": "specific", "symptom": "specific", "trigger": null}, "platform": "windows", "symptom": "wifi_wont_connect", "trigger": "any_network", "escalation": null}
+{"case_id": "c0278", "seed": 992283803, "revealed": {"device": "specific", "symptom": "specific", "trigger": null}, "platform": "iphone", "symptom": "no_cell_data", "trigger": "abroad", "escalation": null}
+{"case_id": "c0285", "seed": 464817932, "revealed": {}, "platform": null, "symptom": null, "trigger": null, "escalation": "human_request"}
+{"case_id": "c0286", "seed": 414727208, "revealed": {"device": "specific", "symptom": "specific", "trigger": "specific"}, "platform": "windows", "symptom": "wifi_wont_connect", "trigger": "any_network", "escalation": null}
+{"case_id": "c0292", "seed": 230019173, "revealed": {}, "platform": null, "symptom": null, "trigger": null, "escalation": "billing"}
+{"case_id": "c0294", "seed": 424023282, "revealed": {}, "platform": null, "symptom": null, "trigger": null, "escalation": "safety"}
+{"case_id": "c0304", "seed": 1068339527, "revealed": {"device": "specific", "symptom": "vague", "trigger": null}, "platform": "iphone", "symptom": "texts_failing", "trigger": "all_texts", "escalation": null}
+{"case_id": "c0326", "seed": 698650673, "revealed": {"device": "specific", "symptom": "vague", "trigger": null}, "platform": "android", "symptom": "battery_drain", "trigger": "after_update", "escalation": null}
+{"case_id": "c0330", "seed": 346597713, "revealed": {"device": "specific", "symptom": "vague", "trigger": null}, "platform": "router", "symptom": "no_internet", "trigger": null, "escalation": null}
+{"case_id": "c0333", "seed": 71282969, "revealed": {"device": null, "symptom": "vague", "trigger": null}, "platform": "router", "symptom": "no_internet", "trigger": null, "escalation": null}
+{"case_id": "c0339", "seed": 216301211, "revealed": {"device": "specific", "symptom": "vague", "trigger": null}, "platform": "mac", "symptom": "app_crashing", "trigger": "all_apps", "escalation": null}
+{"case_id": "c0342", "seed": 442009317, "revealed": {}, "platform": null, "symptom": null, "trigger": null, "escalation": "physical_damage"}
+{"case_id": "c0356", "seed": 302508282, "revealed": {"device": "specific", "symptom": "specific", "trigger": null}, "platform": "windows", "symptom": "battery_drain", "trigger": "no_change", "escalation": null}
+{"case_id": "c0359", "seed": 962947013, "revealed": {"device": "specific", "symptom": "specific", "trigger": null}, "platform": "iphone", "symptom": "battery_drain", "trigger": "after_update", "escalation": null}
+{"case_id": "c0362", "seed": 1032404113, "revealed": {"device": "specific", "symptom": "specific", "trigger": null}, "platform": "iphone", "symptom": "no_cell_data", "trigger": "new_sim", "escalation": null}
+{"case_id": "c0363", "seed": 925924337, "revealed": {"device": "specific", "symptom": "vague", "trigger": "specific"}, "platform": "router", "symptom": "slow_internet", "trigger": "all_connections", "escalation": null}
+{"case_id": "c0364", "seed": 823619348, "revealed": {"device": null, "symptom": "specific", "trigger": null}, "platform": "router", "symptom": "slow_internet", "trigger": "all_connections", "escalation": null}
+{"case_id": "c0373", "seed": 445326044, "revealed": {"device": "specific", "symptom": "specific", "trigger": "specific"}, "platform": "mac", "symptom": "app_crashing", "trigger": "one_app", "escalation": null}
+{"case_id": "c0378", "seed": 475201764, "revealed": {"device": "family", "symptom": "vague", "trigger": null}, "platform": "android", "symptom": "no_cell_data", "trigger": "abroad", "escalation": null}
+{"case_id": "c0386", "seed": 540582807, "revealed": {"device": "specific", "symptom": "vague", "trigger": "specific"}, "platform": "android", "symptom": "texts_failing", "trigger": "all_texts", "escalation": null}
+{"case_id": "c0390", "seed": 319784983, "revealed": {"device": "specific", "symptom": "specific", "trigger": "specific"}, "platform": "router", "symptom": "slow_internet", "trigger": "wifi_only", "escalation": null}
+{"case_id": "c0399", "seed": 614003592, "revealed": {"device": "specific", "symptom": "specific", "trigger": "specific"}, "platform": "iphone", "symptom": "texts_failing", "trigger": "all_texts", "escalation": null}
+{"case_id": "c0400", "seed": 986190876, "revealed": {"device": "family", "symptom": "vague", "trigger": null}, "platform": "iphone", "symptom": "calls_dropping", "trigger": "at_home", "escalation": null}
+{"case_id": "c0407", "seed": 339106557, "revealed": {"device": "specific", "symptom": "vague", "trigger": null}, "platform": "iphone", "symptom": "texts_failing", "trigger": "all_texts", "escalation": null}
+{"case_id": "c0416", "seed": 59285140, "revealed": {"device": "specific", "symptom": "specific", "trigger": null}, "platform": "router", "symptom": "slow_internet", "trigger": "all_connections", "escalation": null}
+{"case_id": "c0417", "seed": 49679612, "revealed": {"device": null, "symptom": "specific", "trigger": "specific"}, "platform": "android", "symptom": "calls_dropping", "trigger": "everywhere", "escalation": null}
+{"case_id": "c0421", "seed": 283163195, "revealed": {"device": "specific", "symptom": "specific", "trigger": null}, "platform": "windows", "symptom": "storage_full", "trigger": null, "escalation": null}
+{"case_id": "c0424", "seed": 885309427, "revealed": {"device": "specific", "symptom": "vague", "trigger": "specific"}, "platform": "router", "symptom": "slow_internet", "trigger": "wifi_only", "escalation": null}
+{"case_id": "c0429", "seed": 503830934, "revealed": {"device": "family", "symptom": "specific", "trigger": "specific"}, "platform": "android", "symptom": "calls_dropping", "trigger": "at_home", "escalation": null}
+{"case_id": "c0435", "seed": 1013114279, "revealed": {"device": "family", "symptom": "vague", "trigger": null}, "platform": "android", "symptom": "no_cell_data", "trigger": "no_change", "escalation": null}
+{"case_id": "c0436", "seed": 248078200, "revealed": {}, "platform": null, "symptom": null, "trigger": null, "escalation": "billing"}
+{"case_id": "c0442", "seed": 685941239, "revealed": {"device": "family", "symptom": "specific", "trigger": "specific"}, "platform": "android", "symptom": "texts_failing", "trigger": "pictures_group", "escalation": null}
+{"case_id": "c0445", "seed": 215807069, "revealed": {"device": "specific", "symptom": "vague", "trigger": "specific"}, "platform": "router", "symptom": "slow_internet", "trigger": "all_connections", "escalation": null}
+{"case_id": "c0452", "seed": 22025871, "revealed": {"device": "specific", "symptom": "vague", "trigger": "specific"}, "platform": "mac", "symptom": "battery_drain", "trigger": "after_update", "escalation": null}
+{"case_id": "c0462", "seed": 188066855, "revealed": {"device": "family", "symptom": "specific", "trigger": null}, "platform": "android", "symptom": "no_cell_data", "trigger": "new_sim", "escalation": null}
+{"case_id": "c0474", "seed": 782427605, "revealed": {}, "platform": null, "symptom": null, "trigger": null, "escalation": "billing"}
+{"case_id": "c0477", "seed": 510636777, "revealed": {}, "platform": null, "symptom": null, "trigger": null, "escalation": "safety"}
+{"case_id": "c0478", "seed": 804783007, "revealed": {}, "platform": null, "symptom": null, "trigger": null, "escalation": "safety"}
+{"case_id": "c0489", "seed": 954689082, "revealed": {}, "platform": null, "symptom": null, "trigger": null, "escalation": "billing"}
+{"case_id": "c0490", "seed": 392996262, "revealed": {"device": "specific", "symptom": "specific", "trigger": null}, "platform": "iphone", "symptom": "no_cell_data", "trigger": "no_change", "escalation": null}
+{"case_id": "c0492", "seed": 266132222, "revealed": {}, "platform": null, "symptom": null, "trigger": null, "escalation": "billing"}
+{"case_id": "c0495", "seed": 1024008116, "revealed": {"device": null, "symptom": "specific", "trigger": "specific"}, "platform": "iphone", "symptom": "no_cell_data", "trigger": "no_change", "escalation": null}
+{"case_id": "c0505", "seed": 981956484, "revealed": {"device": "family", "symptom": "vague", "trigger": null}, "platform": "android", "symptom": "wifi_wont_connect", "trigger": "one_network", "escalation": null}
+{"case_id": "c0509", "seed": 518117462, "revealed": {"device": "family", "symptom": "vague", "trigger": null}, "platform": "iphone", "symptom": "app_crashing", "trigger": "one_app", "escalation": null}
+{"case_id": "c0513", "seed": 242857984, "revealed": {"device": null, "symptom": "vague", "trigger": null}, "platform": "mac", "symptom": "wifi_wont_connect", "trigger": "one_network", "escalation": null}
+{"case_id": "c0514", "seed": 899651565, "revealed": {"device": "specific", "symptom": "specific", "trigger": null}, "platform": "android", "symptom": "calls_dropping", "trigger": "at_home", "escalation": null}
+{"case_id": "c0519", "seed": 752674105, "revealed": {}, "platform": null, "symptom": null, "trigger": null, "escalation": "physical_damage"}
+{"case_id": "c0521", "seed": 716668297, "revealed": {"device": null, "symptom": "specific", "trigger": "specific"}, "platform": "mac", "symptom": "app_crashing", "trigger": "one_app", "escalation": null}
+{"case_id": "c0523", "seed": 1042484025, "revealed": {"device": "specific", "symptom": "specific", "trigger": null}, "platform": "router", "symptom": "no_internet", "trigger": null, "escalation": null}
+{"case_id": "c0524", "seed": 934295223, "revealed": {"device": "specific", "symptom": "vague", "trigger": "specific"}, "platform": "iphone", "symptom": "app_crashing", "trigger": "one_app", "escalation": null}
+{"case_id": "c0534", "seed": 717318765, "revealed": {"device": "specific", "symptom": "vague", "trigger": null}, "platform": "router", "symptom": "slow_internet", "trigger": "all_connections", "escalation": null}
+{"case_id": "c0546", "seed": 479516428, "revealed": {"device": "specific", "symptom": "specific", "trigger": "specific"}, "platform": "router", "symptom": "slow_internet", "trigger": "all_connections", "escalation": null}
+{"case_id": "c0554", "seed": 535936875, "revealed": {"device": "specific", "symptom": "specific", "trigger": null}, "platform": "mac", "symptom": "wont_charge", "trigger": null, "escalation": null}
+{"case_id": "c0562", "seed": 27504366, "revealed": {}, "platform": null, "symptom": null, "trigger": null, "escalation": "billing"}
+{"case_id": "c0578", "seed": 582159744, "revealed": {}, "platform": null, "symptom": null, "trigger": null, "escalation": "safety"}
+{"case_id": "c0580", "seed": 768396592, "revealed": {"device": null, "symptom": "vague", "trigger": null}, "platform": "android", "symptom": "calls_dropping", "trigger": "everywhere", "escalation": null}
+{"case_id": "c0585", "seed": 1024114527, "revealed": {}, "platform": null, "symptom": null, "trigger": null, "escalation": "safety"}
+{"case_id": "c0590", "seed": 490577799, "revealed": {"device": null, "symptom": "specific", "trigger": "specific"}, "platform": "android", "symptom": "no_cell_data", "trigger": "new_sim", "escalation": null}
+{"case_id": "c0591", "seed": 474319516, "revealed": {"device": "specific", "symptom": "vague", "trigger": null}, "platform": "router", "symptom": "slow_internet", "trigger": "wifi_only", "escalation": null}
+{"case_id": "c0592", "seed": 740104417, "revealed": {"device": "family", "symptom": "vague", "trigger": null}, "platform": "android", "symptom": "no_cell_data", "trigger": "no_change", "escalation": null}
