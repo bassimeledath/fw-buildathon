@@ -42,16 +42,21 @@ def make_case(e: dict) -> Case:
 
 
 class LLMPolicy:
-    def __init__(self, model: str, base_url: str, api_key: str, temperature: float, max_tokens: int):
+    def __init__(self, model: str, base_url: str, api_key: str, temperature: float, max_tokens: int,
+                 reasoning_effort: str = ""):
         from openai import AsyncOpenAI
 
         self.client = AsyncOpenAI(base_url=base_url, api_key=api_key, max_retries=8)  # backs off on 429s
         self.model, self.temperature, self.max_tokens = model, temperature, max_tokens
+        # Both models reason by default, so leaving this unset makes latency and cost
+        # uncontrolled. Empty means "whatever the provider defaults to".
+        self.extra = {"reasoning_effort": reasoning_effort} if reasoning_effort else {}
 
     async def __call__(self, messages, gt):
         t0 = time.perf_counter()
         r = await self.client.chat.completions.create(
-            model=self.model, messages=messages, temperature=self.temperature, max_tokens=self.max_tokens
+            model=self.model, messages=messages, temperature=self.temperature,
+            max_tokens=self.max_tokens, **self.extra
         )
         text = r.choices[0].message.content or ""
         u = r.usage
@@ -151,6 +156,7 @@ async def amain(args):
             os.environ["FIREWORKS_API_KEY"],
             args.temperature,
             args.max_tokens,
+            args.reasoning_effort,
         )
     sem = asyncio.Semaphore(args.concurrency)
 
@@ -165,9 +171,12 @@ async def amain(args):
     logs = await asyncio.gather(*[one(e) for e in cases])
     summary = summarize(logs)
     tag = args.tag or (args.policy if args.policy == "oracle" else (args.snapshot or args.model).split("/")[-1])
+    if args.reasoning_effort and not args.tag:
+        tag += "_" + args.reasoning_effort
     out = Path("runs") / f"{RUN_PREFIX}episodes_{args.split}_{tag}"
     out.mkdir(parents=True, exist_ok=True)
-    (out / "summary.json").write_text(json.dumps({"config": run_config(), **summary}, indent=2))
+    cfg = run_config(reasoning_effort=args.reasoning_effort or "provider-default")
+    (out / "summary.json").write_text(json.dumps({"config": cfg, **summary}, indent=2))
     with open(out / "logs.jsonl", "w") as f:
         for x in logs:
             f.write(json.dumps(x) + "\n")
@@ -187,6 +196,7 @@ def main():
     ap.add_argument("--concurrency", type=int, default=8)
     ap.add_argument("--temperature", type=float, default=0.0)
     ap.add_argument("--max-tokens", type=int, default=2048)
+    ap.add_argument("--reasoning-effort", default="", choices=["", "low", "medium", "high"])
     ap.add_argument("--tag", default="")
     asyncio.run(amain(ap.parse_args()))
 

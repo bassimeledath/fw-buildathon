@@ -39,7 +39,7 @@ CONFIG = {"world": "hard" if HARD else "v1", "retrieval": "fixed" if FIXED else 
           "noise_facts": NOISE_FACTS, "budget": BUDGET, "typos": TYPOS, "data_dir": DATA_DIR}
 
 
-def run_config() -> dict:
+def run_config(**extra) -> dict:
     """CONFIG plus the commit the numbers came from. Lazy: never run git at import time."""
     import subprocess
 
@@ -48,7 +48,7 @@ def run_config() -> dict:
                              timeout=5).stdout.strip() or None
     except Exception:
         sha = None
-    return {**CONFIG, "git_sha": sha}
+    return {**CONFIG, "git_sha": sha, **extra}
 
 CORE_SLOTS = ("device", "symptom", "trigger")  # slots that pick the article
 SLOTS = CORE_SLOTS + (("damage", "backup") if HARD else ())  # every slot the agent may ask about

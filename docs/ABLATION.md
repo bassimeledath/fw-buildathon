@@ -152,3 +152,50 @@ trustworthy rather than ambiguous.
 | **F8: per-mechanism counts too small** | 6 hidden-damage and 7 backup-first cases in hard test. Unreportable at that size. |
 | **Training base not inference-reachable** | `train_serverless.py` names `qwen3p8-27b`, which 404s on the inference pool. The "same open model before and after" claim depends on resolving it. |
 | **Stage 4 (typos) not run** | Separate split, never folded into the headline. Brittlebench predicts variance rather than a median shift. |
+
+## Reasoning effort
+
+**Both models reason by default.** `reasoning_content` is populated on every response, and it is ~2/3
+of generation. It arrives in its own field rather than inline, so `content` was always clean JSON and
+`parse_action` was never at risk -- but every latency and cost number was uncontrolled.
+
+`ase.episodes --reasoning-effort {low,medium,high}` now pins it, and the value is recorded in
+`summary.json` under `config.reasoning_effort` (`provider-default` when unset). Runs at different
+efforts get distinct tags, so they cannot overwrite each other.
+
+Measured on `hard + budget 6`:
+
+| model | effort | success | wrong fix | abandoned | p50 latency | tokens/case |
+|---|---|---|---|---|---|---|
+| gpt-oss-120b | default | 0.688 | 0.136 | 0.140 | 0.994s | 3304 |
+| gpt-oss-120b | low | 0.720 | 0.212 | 0.070 | **0.519s** | 2794 |
+| kimi-k3 | default | 0.892 | 0.042 | 0.038 | 2.792s | 3128 |
+| kimi-k3 | low | 0.866 | 0.076 | 0.032 | **2.276s** | 2952 |
+
+**Effort is a latency lever, not an accuracy lever.** Neither accuracy change is significant
+(gpt-oss p=0.522, kimi p=0.289), but gpt-oss's p50 latency nearly halves and its tokens per case fall
+15%. For an agentic support bot that is close to free.
+
+**It does move gpt-oss's failure mode**, the same way Stage 3 did: at low effort its wrong-fix rate
+rises 0.136 -> 0.212 while abandonment halves 0.140 -> 0.070. Heavy reasoning made it dither and run
+out of turns; light reasoning makes it commit, sometimes wrongly. kimi shows the same shape, far
+smaller.
+
+### Which to pin, and an honest tension
+
+The two goals disagree, and neither difference is significant, so picking on the number would be
+cherry-picking:
+
+- **Bigger model gap** favours provider-default: 20.4 pts, against 14.6 at low.
+- **Tougher cost comparison** favours `low`: it is the frontier baseline at its cheapest and fastest,
+  so a trained model has to beat a *fast* kimi rather than a slow one.
+
+Recommend pinning **`low`** for any cost or latency claim, since it is what a latency-sensitive support
+product would actually deploy, and reporting provider-default as a sensitivity row. State the setting
+whenever a number is quoted.
+
+### Stage results stand
+
+Stages 0-3 ran at provider default. Since effort does not significantly change accuracy, the stage
+conclusions are unaffected; re-running six configurations to move nothing significant is not worth the
+spend. The setting is now recorded in every new `summary.json`, so this ambiguity cannot recur.
