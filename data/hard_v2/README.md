@@ -41,5 +41,18 @@ python -m ase.hard_v2 --case sos_switch --model accounts/fireworks/models/deepse
 python -m ase.hard_v2 --quick 1 --model accounts/fireworks/models/deepseek-v4p1-flash --reasoning-effort none   # one case per type
 ```
 
-**Baseline (deepseek-v4p1-flash, reasoning off, temperature 0):** 62% dev, **64% test**, 63% overall (120 cases).
-Weakest: `nothing_works`, `already_on` and `sos_switch` (42% each), then `decoy` (50%).
+**Baselines on `test/`** (70 cases × 8 draws, temperature 0.7, whole calls; `python -m ase.hard_v2_passk`):
+
+| Model | pass@1 | pass@8 | pass^8 | Quadrant |
+|---|---|---|---|---|
+| deepseek-v4p1-flash, reasoning off | 48.2% | 71.4% | 27.1% | stochastic, high ceiling |
+| qwen3p8-27b base, thinking off | 44.8% | 81.4% | 7.1% | stochastic, high ceiling |
+
+Only the latest search results stay in context (older ones are dropped), so long calls fit an 8k window. Numbers from
+before that change (62% dev / 64% test, at temperature 0) aren't comparable.
+
+**Training:** `train/` has 2,273 states from 300 cases on seed 101 (disjoint from dev/test, seed 7). The rollouts
+include deliberate agent mistakes so the model learns to recover. Per-turn reward: 1 if the move is allowed by the
+answer key. Run it with `python -m ase.train_serverless --env hard_v2 --train data/hard_v2/train/train_states.jsonl
+--heldout data/hard_v2/train/heldout_states.jsonl --max-rows 300 --max-seq-len 12288`. Our 7-step run took held-out
+per-turn accuracy from 67% to 91%. The whole-call pass@8 after training hasn't been measured yet.
