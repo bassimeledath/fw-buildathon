@@ -11,6 +11,9 @@ code.
 - `docs/EVALS_EXPLAINED.md`: start here. How grading works in plain words, real graded conversations, ideas to make it harder
 - `docs/ARCHITECTURE.md`: actions, oracle, reward, sample flows (3 pages)
 - `docs/SPIKE_HARD_WORLD.md`: the harder, KB-grounded world and its fairness checks
+- `docs/BENCHMARK_FAILURE_POINTS.md`: where the benchmark was gameable or broken, and what was fixed
+- `docs/HARDER_EVAL_DESIGN.md`: which difficulty mechanisms the literature supports, and which it rules out
+- `docs/ABLATION.md`: **results.** Recommended config, what each mechanism was worth, open items
 - `PLAN.md`: design, reward, results so far, Fireworks gotchas, next steps
 - `STORY.md`: how we present it (diagnosis, then technique, then cost), in the judge's framework
 
@@ -20,6 +23,17 @@ code.
 | **v0, the baseline** | `ASE_RETRIEVAL=fixed` | No search action. After every customer message the env searches the customer's words and shows the top 5. The model picks resolve / ask / escalate. Reward 1 or 0. | `data_fixed/` |
 | v1 | (nothing) | Adds a `search` action with its own query reward (partial credit). | `data/` |
 | hard | `ASE_WORLD=hard` (+ optional `ASE_RETRIEVAL=fixed`) | Damage gates, basic vs advanced fixes, backup before erase, black-screen overlap, customers who don't know their model. | `data_hard/`, `data_hard_fixed/` |
+
+### Difficulty mechanisms (stack on a mode; `docs/ABLATION.md` has what each is worth)
+| Flag | What it does | Effect on the open model |
+|---|---|---|
+| `ASE_BUDGET=6` | Customer abandons after 6 agent turns. Eval-time only, shares the mode's data. | **-10.8 pts (p=0.0002).** Recommended. |
+| `ASE_NOISE_FACTS=1` | 40% of cases mention a second device and set it aside, so a sloppy query retrieves the wrong cell. `data_*_n/` | -3.8 pts (p=0.26) |
+| `ASE_SHARD=1` | Withholds "already tried the basics" until after the agent searches. `data_*_s/` | None. Off by default, kept as a reported negative result. |
+| `ASE_TYPOS=1` | Writes `*_noisy_*` splits. Not implemented yet. | - |
+
+**Recommended benchmark: `ASE_WORLD=hard ASE_BUDGET=6`.** It doubles the gap between the open and
+frontier models (12.1 -> 24.2 pts) while the oracle still solves 100%.
 
 v0 is what RL trains on and what the harness-engineering workstream competes against: same
 locked test set, same scorer. Harness rows just need to write `ase.episodes`-format logs.
@@ -39,6 +53,7 @@ export ASE_RETRIEVAL=fixed                           # v0 baseline (unset for v1
 python -m ase.build_dataset --n-cases 600 --seed 7   # world -> data_fixed/*_states.jsonl, *_episodes.jsonl
 python -m ase.fairness                               # oracle solves every case, no retrieval misses, etc.
 python -m ase.sanity --split test                    # reward separates oracle from bad policies
+python -m ase.probe --split test                     # no-LLM policies: is the benchmark gameable?
 
 # baselines on serverless inference models
 python -m ase.calibrate --split test --model accounts/fireworks/models/kimi-k3 --k 8
@@ -64,6 +79,7 @@ states where the sampled pass rate falls between 0.2 and 0.8.
 | `ase/reward.py` | Single-step training reward (gates multiply, credits add) |
 | `ase/episodes.py` | Multi-turn eval (a separate, stricter scorer) |
 | `ase/fairness.py` | Code checks that a world is fair (oracle solves all, facts are obtainable) |
+| `ase/probe.py` | Adversarial no-LLM policies, scored by the real eval, to find gameable spots |
 | `ase/calibrate.py` | k-sample scoring, baselines, difficulty band |
 | `ase/passk.py` | Capability and consistency curves per category |
 | `ase/train_serverless.py` | Fireworks serverless GRPO wrapper |
