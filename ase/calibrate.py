@@ -22,10 +22,11 @@ from pathlib import Path
 from openai import AsyncOpenAI
 
 from .reward import score
+from .world import DATA_DIR, RUN_PREFIX
 
 
 async def amain(a):
-    rows = [json.loads(line) for line in open(f"data/{a.split}_states.jsonl")]
+    rows = [json.loads(line) for line in open(f"{DATA_DIR}/{a.split}_states.jsonl")]
     random.Random(0).shuffle(rows)
     rows = rows[: a.n] if a.n else rows
     client = AsyncOpenAI(base_url=os.environ.get("OPENAI_BASE_URL", "https://api.fireworks.ai/inference/v1"),
@@ -64,7 +65,7 @@ async def amain(a):
 
     results = await asyncio.gather(*[sample(r) for r in rows])
     tag = a.tag or (a.snapshot or a.model).split("/")[-1]
-    out = Path("runs") / f"calib_{a.split}_{tag}_k{a.k}"
+    out = Path("runs") / f"{RUN_PREFIX}calib_{a.split}_{tag}_k{a.k}"
     out.mkdir(parents=True, exist_ok=True)
     by_kind, band, too_easy, too_hard, errors = collections.defaultdict(list), [], 0, 0, 0
     with open(out / "samples.jsonl", "w") as f:
@@ -92,10 +93,10 @@ async def amain(a):
     (out / "summary.json").write_text(json.dumps(summary, indent=2))
     print(json.dumps(summary, indent=2))
     if a.write_band and band:
-        with open("data/train_rl.jsonl", "w") as f:
+        with open(f"{DATA_DIR}/train_rl.jsonl", "w") as f:
             for r in band:
                 f.write(json.dumps({"messages": r["messages"], "ground_truth": r["ground_truth"]}) + "\n")
-        print(f"wrote {len(band)} rows to data/train_rl.jsonl")
+        print(f"wrote {len(band)} rows to {DATA_DIR}/train_rl.jsonl")
 
 
 def main():

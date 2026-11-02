@@ -11,6 +11,7 @@ import json
 import random
 
 from .reward import score
+from .world import DATA_DIR
 
 
 def oracle(gt, msgs, rng):
@@ -34,8 +35,9 @@ def always_search_raw(gt, msgs, rng):
 def resolve_top_hit(gt, msgs, rng):
     """The one-shot bias: search once, then resolve with whatever came back first."""
     for m in reversed(msgs):
-        if m["content"].startswith("[SEARCH RESULTS]") and "- KB-" in m["content"]:
-            doc = m["content"].split("- ")[1].split(":")[0]
+        res = m["content"].split("[SEARCH RESULTS]")[-1] if "[SEARCH RESULTS]" in m["content"] else ""
+        if "- KB-" in res:
+            doc = res.split("- ")[1].split(":")[0]
             return {"action": "resolve", "doc_id": doc, "reply": "Try this."}
     return always_search_raw(gt, msgs, rng)
 
@@ -55,7 +57,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--split", default="test")
     args = ap.parse_args()
-    rows = [json.loads(line) for line in open(f"data/{args.split}_states.jsonl")]
+    rows = [json.loads(line) for line in open(f"{DATA_DIR}/{args.split}_states.jsonl")]
     rng = random.Random(0)
     for pol in POLICIES:
         rs, kinds = [], collections.Counter()

@@ -3,13 +3,25 @@
 RL post-training for the first moves of a tech-support conversation. Built for Fireworks: Deploy
 (Nov 2, 2026).
 
-The task: a small open model learns to **search** with a good query, **ask** the one question that
-decides between candidate articles, **resolve** only with the exact article, or **escalate**
-(damage, safety, billing, wants a human). The world is synthetic, so every label is known by
-construction and the reward is pure code.
+The task: a small open model learns to **ask** the one question that decides between candidate
+articles, **resolve** only with the exact article, or **escalate** (damage, safety, billing, wants
+a human). The world is synthetic, so every label is known by construction and the reward is pure
+code.
 
+- `docs/ARCHITECTURE.md`: actions, oracle, reward, sample flows (3 pages)
+- `docs/SPIKE_HARD_WORLD.md`: the harder, KB-grounded world and its fairness checks
 - `PLAN.md`: design, reward, results so far, Fireworks gotchas, next steps
 - `STORY.md`: how we present it (diagnosis, then technique, then cost), in the judge's framework
+
+## Modes (pick with environment variables; each has its own `data*/` and `runs/<prefix>*`)
+| Mode | Set | What changes | Data |
+|---|---|---|---|
+| **v0, the baseline** | `ASE_RETRIEVAL=fixed` | No search action. After every customer message the env searches the customer's words and shows the top 5. The model picks resolve / ask / escalate. Reward 1 or 0. | `data_fixed/` |
+| v1 | (nothing) | Adds a `search` action with its own query reward (partial credit). | `data/` |
+| hard | `ASE_WORLD=hard` (+ optional `ASE_RETRIEVAL=fixed`) | Damage gates, basic vs advanced fixes, backup before erase, black-screen overlap, customers who don't know their model. | `data_hard/`, `data_hard_fixed/` |
+
+v0 is what RL trains on and what the harness-engineering workstream competes against: same
+locked test set, same scorer. Harness rows just need to write `ase.episodes`-format logs.
 
 ## Setup
 ```bash
@@ -22,7 +34,9 @@ cp .env.example .env   # add FIREWORKS_API_KEY and FIREWORKS_ACCOUNT_ID
 
 ## Commands
 ```bash
-python -m ase.build_dataset --n-cases 600            # world -> data/*_states.jsonl, *_episodes.jsonl
+export ASE_RETRIEVAL=fixed                           # v0 baseline (unset for v1; add ASE_WORLD=hard for hard)
+python -m ase.build_dataset --n-cases 600 --seed 7   # world -> data_fixed/*_states.jsonl, *_episodes.jsonl
+python -m ase.fairness                               # oracle solves every case, no retrieval misses, etc.
 python -m ase.sanity --split test                    # reward separates oracle from bad policies
 
 # baselines on serverless inference models
@@ -31,23 +45,24 @@ python -m ase.passk runs/calib_test_kimi-k3_k8/samples.jsonl     # pass@k / pass
 python -m ase.episodes --split test --model accounts/fireworks/models/kimi-k3
 
 # GRPO on the serverless training pool (LoRA)
-PYTHONPATH=.:../fw-cookbook python -m ase.train_serverless --train data/train_rl.jsonl --run-dir runs/rl_v2
+PYTHONPATH=.:../fw-cookbook python -m ase.train_serverless --train data_fixed/train_rl.jsonl --run-dir runs/rl_v0
 
 # evaluate a trained snapshot (path from runs/<run>/result.json)
 PYTHONPATH=.:../fw-cookbook python -m ase.episodes --split test --snapshot <acct>/run-<id>/<prefix>-step-N-<hash>
 PYTHONPATH=.:../fw-cookbook python -m ase.calibrate --split test --snapshot <...> --k 8
 ```
 
-`data/train_rl.jsonl` is produced by `ase.calibrate --split train ... --write-band`. It holds the
+`<data dir>/train_rl.jsonl` is produced by `ase.calibrate --split train ... --write-band`. It holds the
 states where the sampled pass rate falls between 0.2 and 0.8.
 
 ## Layout
 | File | What it does |
 |---|---|
 | `ase/world.py` | Devices, symptoms, triggers, KB articles, escalation policy, candidate logic |
-| `ase/env.py` | System prompt, BM25 retriever, scripted customer, oracle labels, step function |
+| `ase/env.py` | System prompt, BM25 retriever (fixed or model-driven), scripted customer, oracle labels, step function |
 | `ase/reward.py` | Single-step training reward (gates multiply, credits add) |
 | `ase/episodes.py` | Multi-turn eval (a separate, stricter scorer) |
+| `ase/fairness.py` | Code checks that a world is fair (oracle solves all, facts are obtainable) |
 | `ase/calibrate.py` | k-sample scoring, baselines, difficulty band |
 | `ase/passk.py` | Capability and consistency curves per category |
 | `ase/train_serverless.py` | Fireworks serverless GRPO wrapper |

@@ -1,5 +1,8 @@
 # The story, in the judge's order
 
+The task is **v0** (README "Modes"): retrieval is fixed, and the model picks resolve, ask or
+escalate. Harness engineering and RL compete on the same locked v0 test set.
+
 This follows Sinan's framework from the post-training deck: diagnosis first, technique as a
 consequence of the diagnosis, cost per task last. Each beat lists what we say, the evidence, and
 the gap still to close on the day.
@@ -97,8 +100,9 @@ the bill out loud.
 ## Weaknesses we name ourselves (he credits this)
 - The question text is unscored. Only the slot is checked, so "Can you tell me more about the
   device?" scores the same as a sharp question.
-- BM25 rewards keyword overlap. A query can game a frozen lexical index in ways a real search
-  engine would not reward.
+- The v0 baseline fixes retrieval (the env searches the customer's words) so the skill under test
+  is the decision alone. In v1, where the model writes the query, BM25 rewards keyword overlap
+  that a real search engine would not.
 - The labels come from a synthetic one-article-per-situation world. Real KBs overlap, so the
   oracle is cleaner than reality.
 - At the first turn, both ask and search are allowed and equally rewarded. That is a policy choice

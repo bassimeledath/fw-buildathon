@@ -25,6 +25,7 @@ from training.utils.rl.rollout import single_turn_renderer_rollout
 from training.utils.supervised import build_renderer
 
 from .reward import score
+from .world import DATA_DIR
 
 
 def _gt(row):
@@ -79,8 +80,8 @@ def main():
     p.add_argument("--base-model", default="accounts/fireworks/models/qwen3p8-27b")
     p.add_argument("--tokenizer-model", default="Qwen/Qwen3.8-27B")
     p.add_argument("--renderer-name", default="qwen3_8_disable_thinking_interleaved")
-    p.add_argument("--train", default="data/train_states.jsonl")
-    p.add_argument("--heldout", default="data/test_states.jsonl")
+    p.add_argument("--train", default=f"{DATA_DIR}/train_states.jsonl")
+    p.add_argument("--heldout", default=f"{DATA_DIR}/test_states.jsonl")
     p.add_argument("--max-rows", type=int, default=128)
     p.add_argument("--eval-rows", type=int, default=64)
     p.add_argument("--eval-samples", type=int, default=4)

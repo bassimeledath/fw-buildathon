@@ -12,7 +12,7 @@ import random
 from pathlib import Path
 
 from .env import KB, RETRIEVER, allowed_actions, ground_truth, new_state, sample_case, step, to_prompt
-from .world import PLATFORMS, SYMPTOM_TITLE, gold_article
+from .world import BACKUP_DOC, DATA_DIR, HARD, PLATFORMS, SYMPTOM_TITLE, gold_article
 
 OOD_SYMPTOMS = {"bluetooth_pairing", "overheating"}  # never in train; tests generalisation
 
@@ -29,6 +29,10 @@ def oracle_query(state, rng: random.Random, noisy: bool) -> str:
         parts.append(SYMPTOM_TITLE[c.symptom])
     if c.revealed.get("trigger") == "specific" and c.trigger:
         parts.append(c.trigger.replace("_", " "))
+    if HARD:
+        if allowed_actions(state, KB).get("search", {}).get("gold") == BACKUP_DOC:
+            return "back up the device before an erase"
+        parts.append("advanced fix" if c.tier() == "advanced" else "basic checks")
     return " ".join(parts) or " ".join(opening.split()[:20])
 
 
@@ -62,7 +66,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--n-cases", type=int, default=600)
     ap.add_argument("--seed", type=int, default=7)
-    ap.add_argument("--out", default="data")
+    ap.add_argument("--out", default=DATA_DIR)
     args = ap.parse_args()
     rng = random.Random(args.seed)
     out = Path(args.out)
@@ -70,15 +74,21 @@ def main():
 
     splits = collections.defaultdict(list)
     episodes = collections.defaultdict(list)
+    dropped = 0
     for i in range(args.n_cases):
         case = sample_case(rng, f"c{i:04d}")
         if case.symptom in OOD_SYMPTOMS:
             split = "test_ood"
         else:
             split = "test" if rng.random() < 0.2 else "train"
-        episodes[split].append({"case_id": case.case_id, "seed": rng.randrange(1 << 30), "revealed": dict(case.revealed),
-                                **{k: case.__dict__[k] for k in ("platform", "symptom", "trigger", "escalation")}})
-        splits[split] += rollout_states(case, rng)
+        snap = {"case_id": case.case_id, "seed": rng.randrange(1 << 30), "revealed": dict(case.revealed),
+                "extra": dict(case.extra), **{k: case.__dict__[k] for k in ("platform", "symptom", "trigger", "escalation")}}
+        rows = rollout_states(case, rng)
+        if any("retrieval_miss" in r["ground_truth"]["allowed"] for r in rows):
+            dropped += 1  # fixed retrieval missed the article (~0.05% of hard cases); keep the set fair
+            continue
+        episodes[split].append(snap)
+        splits[split] += rows
 
     for split, rows in splits.items():
         with open(out / f"{split}_states.jsonl", "w") as f:
@@ -92,7 +102,7 @@ def main():
     with open(out / "kb.jsonl", "w") as f:
         for a in KB:
             f.write(json.dumps(a.__dict__) + "\n")
-    print(f"kb: {len(KB)} articles; gold check:", gold_article is not None)
+    print(f"kb: {len(KB)} articles; dropped {dropped} cases with a retrieval miss")
 
 
 if __name__ == "__main__":

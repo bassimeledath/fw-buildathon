@@ -21,18 +21,19 @@ import time
 from pathlib import Path
 
 from .env import KB, RETRIEVER, ground_truth, new_state, parse_action, step, to_prompt
-from .world import Case
+from .world import DATA_DIR, HARD, RUN_PREFIX, Case
 
-MAX_STEPS = 8
+MAX_STEPS = 12 if HARD else 8
 
 
 def load_cases(split: str, n: int | None):
-    rows = [json.loads(line) for line in open(f"data/{split}_episodes.jsonl")]
+    rows = [json.loads(line) for line in open(f"{DATA_DIR}/{split}_episodes.jsonl")]
     return rows[:n] if n else rows
 
 
 def make_case(e: dict) -> Case:
-    return Case(e["case_id"], e["platform"], e["symptom"], e["trigger"], e["escalation"], dict(e["revealed"]))
+    return Case(e["case_id"], e["platform"], e["symptom"], e["trigger"], e["escalation"], dict(e["revealed"]),
+                dict(e.get("extra", {})))
 
 
 class LLMPolicy:
@@ -61,7 +62,8 @@ async def oracle_policy(messages, gt):
 async def run_episode(e: dict, policy) -> dict:
     rng = random.Random(e["seed"])
     state = new_state(make_case(e), rng)
-    log = {"case_id": e["case_id"], "escalation": e["escalation"], "steps": [], "lat": [], "ptok": 0, "ctok": 0}
+    esc = e["escalation"] or ("physical_damage" if e.get("extra", {}).get("damaged") else None)
+    log = {"case_id": e["case_id"], "escalation": esc, "steps": [], "lat": [], "ptok": 0, "ctok": 0}
     outcome, asks, wasted_asks, searches = "max_steps", 0, 0, 0
     for _ in range(MAX_STEPS):
         gt = ground_truth(state, KB)
@@ -82,6 +84,7 @@ async def run_episode(e: dict, policy) -> dict:
         done, outcome = step(state, action, RETRIEVER, rng)
         if done:
             break
+    log["hidden"] = bool(e.get("extra", {}).get("damaged"))
     log.update(outcome=outcome, asks=asks, wasted_asks=wasted_asks, searches=searches)
     log["transcript"] = state.messages
     return log
@@ -101,8 +104,11 @@ def summarize(logs: list[dict]) -> dict:
         "success": rate(logs, "resolved_correct", "escalated_correct"),
         "fix_rate": rate(fix, "resolved_correct"),
         "wrong_fix_rate": rate(fix, "resolved_wrong"),
+        "skipped_check_rate": rate(logs, "resolved_skipped_check"),
         "false_escalation_rate": rate(fix, "escalated_wrong"),
         "missed_escalation_rate": round(1 - rate(esc, "escalated_correct"), 3) if esc else None,
+        "hidden_damage_missed": round(1 - rate([x for x in esc if x.get("hidden")], "escalated_correct"), 3)
+        if any(x.get("hidden") for x in esc) else None,
         "invalid_or_stuck": rate(logs, "invalid", "max_steps"),
         "customer_questions_per_case": round(statistics.mean(x["asks"] for x in logs), 2),
         "wasted_questions_per_case": round(statistics.mean(x["wasted_asks"] for x in logs), 2),
@@ -141,7 +147,7 @@ async def amain(args):
     logs = await asyncio.gather(*[one(e) for e in cases])
     summary = summarize(logs)
     tag = args.tag or (args.policy if args.policy == "oracle" else (args.snapshot or args.model).split("/")[-1])
-    out = Path("runs") / f"episodes_{args.split}_{tag}"
+    out = Path("runs") / f"{RUN_PREFIX}episodes_{args.split}_{tag}"
     out.mkdir(parents=True, exist_ok=True)
     (out / "summary.json").write_text(json.dumps(summary, indent=2))
     with open(out / "logs.jsonl", "w") as f:

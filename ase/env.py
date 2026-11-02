@@ -9,21 +9,31 @@ from dataclasses import dataclass, field
 from rank_bm25 import BM25Okapi
 
 from .world import (
+    DESTRUCTIVE,
+    DEVICE_CLUE,
     DEVICE_FAMILY,
     DEVICE_SPECIFIC,
     ESCALATIONS,
+    GATED,
+    FIXED,
+    HARD,
     PLATFORMS,
     SYMPTOM_SPECIFIC,
     SYMPTOM_VAGUE,
     SYMPTOMS,
+    TRIED_TEXT,
     TRIGGER_TEXT,
+    BACKUP_DOC,
     Article,
     Case,
     build_kb,
     candidates,
     discriminating_slots,
     gold_article,
+    target_article,
 )
+
+RESULTS_K = 5 if HARD or FIXED else 3
 
 SYSTEM_PROMPT = """You are a tech-support agent for a phone carrier, talking to a customer. Each turn, output exactly one JSON object and nothing else. The four possible actions:
 
@@ -39,15 +49,53 @@ Rules:
 - If you cannot tell which article applies, ask the one question that decides it. The slot says what the question is about.
 - Searches are invisible to the customer. Questions cost the customer time, so do not ask what you already know."""
 
+SYSTEM_PROMPT_HARD = """You are a tech-support agent for a phone carrier, talking to a customer. Each turn, output exactly one JSON object and nothing else. The four possible actions:
+
+{"action": "search", "query": "<KB search query>"}
+{"action": "ask", "slot": "device" | "symptom" | "trigger" | "damage" | "backup", "question": "<one short question for the customer>"}
+{"action": "resolve", "doc_id": "<KB id from search results>", "reply": "<short reply to the customer>"}
+{"action": "escalate", "reason": "physical_damage" | "safety" | "billing" | "human_request", "reply": "<short reply>"}
+
+Rules:
+- Escalate, never troubleshoot: physical or liquid damage, safety hazards (swelling battery, smoke, burning smell), billing, plan or payment questions, or a customer asking for a human.
+- Articles differ by device type (iPhone, Android phone, Windows laptop, Mac, home router), by symptom, often by the trigger (when, where, or under what conditions it happens), and by tier: basic checks or advanced fix.
+- Use the basic-checks article unless the customer reports they already tried a restart and the settings. Use the advanced fix only then.
+- Read the article text in the search results. Do what it says to do before you resolve with it.
+- Only resolve with an article you have seen in search results that matches the customer's exact situation.
+- If you cannot tell which article applies, ask the one question that decides it. The slot says what the question is about: damage = was it dropped or wet, backup = is the data backed up.
+- Searches are invisible to the customer. Questions cost the customer time, so do not ask what you already know."""
+
+
+def system_prompt() -> str:
+    p = SYSTEM_PROMPT_HARD if HARD else SYSTEM_PROMPT
+    if not FIXED:
+        return p
+    p = p.replace("The four possible actions:", "The three possible actions:")
+    p = p.replace('{"action": "search", "query": "<KB search query>"}\n', "")
+    p = p.replace("Searches are invisible to the customer. Questions", "Each customer message comes with the top KB "
+                  "search results for everything the customer has said so far. Questions")
+    return p
+
 
 def _tok(s: str) -> list[str]:
     return "".join(c.lower() if c.isalnum() else " " for c in s).split()
 
 
+def _aliases(a: Article) -> str:
+    """Fixed retrieval searches raw customer words, so index the words customers use for each article."""
+    if a.symptom == "other":
+        return ""
+    words = DEVICE_SPECIFIC[a.platform] + ([DEVICE_CLUE[a.platform]] if a.platform in DEVICE_CLUE else [])
+    words += SYMPTOM_SPECIFIC[a.symptom] + (TRIGGER_TEXT[a.trigger] if a.trigger else [])
+    if a.tier == "advanced":
+        words += TRIED_TEXT
+    return " ".join(words)
+
+
 class Retriever:
     def __init__(self, kb: list[Article]):
         self.kb = kb
-        self.bm25 = BM25Okapi([_tok(a.title + " " + a.body) for a in kb])
+        self.bm25 = BM25Okapi([_tok(a.title + " " + a.body + (" " + _aliases(a) if FIXED else "")) for a in kb])
 
     def search(self, query: str, k: int = 3) -> list[Article]:
         scores = self.bm25.get_scores(_tok(query))
@@ -64,7 +112,10 @@ class Retriever:
 def format_results(arts: list[Article]) -> str:
     if not arts:
         return "[SEARCH RESULTS] No matching articles."
-    lines = [f"- {a.doc_id}: {a.title}" for a in arts]
+    if HARD:  # the agent must read the article text: the gates live there
+        lines = [f"- {a.doc_id}: {a.title}\n  {a.body}" for a in arts]
+    else:
+        lines = [f"- {a.doc_id}: {a.title}" for a in arts]
     return "[SEARCH RESULTS]\n" + "\n".join(lines)
 
 
@@ -78,6 +129,8 @@ FILLER = [
     "",
     "",
 ]
+if HARD:  # "already tried" is signal in the hard world, so filler must not say it; it may tease it
+    FILLER[FILLER.index("I already tried turning it off and on.")] = "My friend said to restart it, but I haven't yet."
 
 
 def sample_case(rng: random.Random, case_id: str, p_escalate: float = 0.2) -> Case:
@@ -96,7 +149,15 @@ def sample_case(rng: random.Random, case_id: str, p_escalate: float = 0.2) -> Ca
         "symptom": rng.choices(["specific", "vague"], [0.65, 0.35])[0],
         "trigger": rng.choices(["specific", None], [0.45, 0.55])[0] if trig else None,
     }
-    return Case(case_id, plat, sym, trig, revealed=revealed)
+    extra = {}
+    if HARD:
+        extra = {
+            "tried": rng.random() < 0.4,
+            "damaged": sym in GATED and rng.random() < 0.3,  # never volunteered; only the gate question finds it
+            "backed_up": rng.random() < 0.6,
+            "vague_device": dev_level != "specific" and fam != "router" and rng.random() < 0.4,
+        }
+    return Case(case_id, plat, sym, trig, revealed=revealed, extra=extra)
 
 
 def render_opening(case: Case, rng: random.Random) -> str:
@@ -118,6 +179,8 @@ def render_opening(case: Case, rng: random.Random) -> str:
     parts = [f"Hi, {dev}: {sym}." if dev != "it" else f"Hi, {sym}."]
     if r.get("trigger") == "specific":
         parts.append(rng.choice(TRIGGER_TEXT[case.trigger]).capitalize() + ".")
+    if case.extra.get("tried"):
+        parts.append(rng.choice(TRIED_TEXT).capitalize() + ".")
     parts.append(rng.choice(FILLER))
     return " ".join(p for p in parts if p)
 
@@ -126,7 +189,22 @@ def customer_answer(case: Case, slot: str, rng: random.Random) -> tuple[str, boo
     """Scripted customer. Returns (reply, informative). Updates what has been revealed."""
     if case.escalation:
         return "I told you what happened. Can you help or not?", False
+    if slot in ("damage", "backup"):
+        yes = case.extra.get("damaged") if slot == "damage" else case.extra.get("backed_up", True)
+        if slot in case.revealed:
+            return "I already told you.", False
+        case.revealed[slot] = "yes" if yes else "no"
+        if slot == "damage":
+            return ("Well, I did drop it last week, and it got a bit wet." if yes
+                    else "No, it hasn't been dropped or gotten wet."), True
+        return ("Yes, it backs up to the cloud every night." if yes else "No, I've never backed it up."), True
     already = case.revealed.get(slot) == "specific"
+    if slot == "device" and case.extra.get("vague_device") and not already:
+        if not case.extra.get("device_asked"):  # first ask: the customer does not know the model
+            case.extra["device_asked"] = True
+            return "Honestly, I'm not sure what model it is.", False
+        case.revealed[slot] = "specific"
+        return "I don't know the name, but " + DEVICE_CLUE[case.platform] + ".", True
     if slot == "device":
         text = "It's a " + rng.choice(DEVICE_SPECIFIC[case.platform]) + "."
     elif slot == "symptom":
@@ -151,11 +229,52 @@ class State:
     searched_since_answer: bool = False
 
     def snapshot_case(self) -> Case:
-        return Case(**{**self.case.__dict__, "revealed": dict(self.case.revealed)})
+        return Case(**{**self.case.__dict__, "revealed": dict(self.case.revealed), "extra": dict(self.case.extra)})
+
+
+def _allowed_hard(state: State, kb: list[Article]) -> dict:
+    case = state.case
+    if case.escalation:
+        return {"escalate": {"reason": case.escalation}}
+    if case.revealed.get("damage") == "yes":
+        return {"escalate": {"reason": "physical_damage"}}
+    cands = candidates(case, kb)
+    if len(cands) > 1:
+        slots = discriminating_slots(cands)
+        if "damage" not in case.revealed and all(a.symptom in GATED for a in cands):
+            slots.append("damage")  # every remaining article opens with the damage question
+        out = {"ask": {"slots": slots}}
+        if not state.searched_since_answer and not state.seen_ids:
+            out["search"] = {"gold": gold_article(case, kb).doc_id, "candidates": [a.doc_id for a in cands]}
+        return out
+    art = cands[0]
+    need = []  # checks the article says to do before resolving
+    if art.symptom in GATED and "damage" not in case.revealed:
+        need.append("damage")
+    if art.tier == "advanced" and art.symptom in DESTRUCTIVE and "backup" not in case.revealed:
+        need.append("backup")
+    if need:
+        out = {"ask": {"slots": need}}
+        if art.doc_id not in state.seen_ids:
+            out["search"] = {"gold": art.doc_id, "candidates": [art.doc_id]}
+        return out
+    tgt = target_article(case, kb)
+    if tgt.doc_id in state.seen_ids:
+        return {"resolve": {"doc_id": tgt.doc_id}}
+    return {"search": {"gold": tgt.doc_id, "candidates": [tgt.doc_id]}}
 
 
 def allowed_actions(state: State, kb: list[Article]) -> dict:
     """The oracle. Returns the set of correct actions for this state and what each needs."""
+    out = _allowed_hard(state, kb) if HARD else _allowed_v1(state, kb)
+    if FIXED:
+        out.pop("search", None)
+        if not out:  # retrieval missed the article the customer described; ase.fairness counts these
+            out = {"retrieval_miss": {}}
+    return out
+
+
+def _allowed_v1(state: State, kb: list[Article]) -> dict:
     case = state.case
     if case.escalation:
         return {"escalate": {"reason": case.escalation}}
@@ -174,7 +293,7 @@ def allowed_actions(state: State, kb: list[Article]) -> dict:
 
 def ground_truth(state: State, kb: list[Article]) -> dict:
     c = state.case
-    gold = gold_article(c, kb) if not c.escalation else None
+    gold = target_article(c, kb) if not c.escalation else None
     return {
         "case_id": c.case_id,
         "allowed": allowed_actions(state, kb),
@@ -186,7 +305,7 @@ def ground_truth(state: State, kb: list[Article]) -> dict:
 
 
 def to_prompt(state: State) -> list[dict]:
-    return [{"role": "system", "content": SYSTEM_PROMPT}] + state.messages
+    return [{"role": "system", "content": system_prompt()}] + state.messages
 
 
 def parse_action(text: str) -> dict | None:
@@ -204,10 +323,24 @@ def parse_action(text: str) -> dict | None:
 
 def step(state: State, action: dict, retriever: Retriever, rng: random.Random) -> tuple[bool, str]:
     """Apply an action to the environment. Returns (done, outcome)."""
+    allowed = allowed_actions(state, retriever.kb)  # before this action changes the state
     state.messages.append({"role": "assistant", "content": json.dumps(action)})
     kind = action.get("action")
+    if FIXED and kind == "search":
+        return True, "invalid"  # not an action in the fixed-retrieval baseline
+    if (HARD or FIXED) and kind == "resolve":
+        if "resolve" in allowed and action.get("doc_id") == allowed["resolve"]["doc_id"]:
+            return True, "resolved_correct"
+        tgt = target_article(state.case, retriever.kb) if not state.case.escalation else None
+        hidden_damage = state.case.extra.get("damaged")
+        if tgt and action.get("doc_id") == tgt.doc_id and not hidden_damage:
+            return True, "resolved_skipped_check"  # right article, but a check the article requires was skipped
+        return True, "resolved_wrong"
+    if (HARD or FIXED) and kind == "escalate":
+        ok = "escalate" in allowed and (not FIXED or action.get("reason") == allowed["escalate"]["reason"])
+        return True, "escalated_correct" if ok else "escalated_wrong"
     if kind == "search":
-        res = retriever.search(str(action.get("query", "")))
+        res = retriever.search(str(action.get("query", "")), k=RESULTS_K)
         state.seen_ids |= {a.doc_id for a in res}
         state.searched_since_answer = True
         state.messages.append({"role": "user", "content": format_results(res)})
@@ -216,6 +349,8 @@ def step(state: State, action: dict, retriever: Retriever, rng: random.Random) -
         reply, _ = customer_answer(state.case, str(action.get("slot", "")), rng)
         state.searched_since_answer = False
         state.messages.append({"role": "user", "content": "[CUSTOMER] " + reply})
+        if FIXED:
+            auto_search(state)
         return False, "ask"
     if kind == "resolve":
         gold = gold_article(state.case, retriever.kb) if not state.case.escalation else None
@@ -228,8 +363,25 @@ def step(state: State, action: dict, retriever: Retriever, rng: random.Random) -
     return True, "invalid"
 
 
+def customer_text(state: State) -> str:
+    msgs = [m["content"].split("\n\n[SEARCH RESULTS]")[0] for m in state.messages if m["role"] == "user"]
+    return " ".join(m.removeprefix("[CUSTOMER] ") for m in msgs if m.startswith("[CUSTOMER]"))
+
+
+def auto_search(state: State):
+    """Fixed retrieval: search everything the customer said; append results to the last customer message."""
+    res = RETRIEVER.search(customer_text(state), k=RESULTS_K)
+    state.seen_ids |= {a.doc_id for a in res}
+    if any(BACKUP_DOC in a.body for a in res):  # the erase caution names the backup article by id
+        state.seen_ids.add(BACKUP_DOC)
+    state.messages[-1]["content"] += "\n\n" + format_results(res)
+
+
 def new_state(case: Case, rng: random.Random) -> State:
-    return State(case=case, messages=[{"role": "user", "content": "[CUSTOMER] " + render_opening(case, rng)}])
+    state = State(case=case, messages=[{"role": "user", "content": "[CUSTOMER] " + render_opening(case, rng)}])
+    if FIXED:
+        auto_search(state)
+    return state
 
 
 KB = build_kb()

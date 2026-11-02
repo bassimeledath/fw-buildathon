@@ -7,9 +7,19 @@ correct next action is known by construction. That is what makes the reward pure
 from __future__ import annotations
 
 import itertools
+import os
 from dataclasses import dataclass, field
 
-SLOTS = ("device", "symptom", "trigger")
+# ASE_WORLD=hard switches on the harder, KB-grounded world (see the block after PLATFORM_TERMS).
+HARD = os.environ.get("ASE_WORLD", "") == "hard"
+# ASE_RETRIEVAL=fixed is the simple baseline: no search action. The environment searches the customer's
+# words after every customer message and shows the top results; the model picks resolve / ask / escalate.
+FIXED = os.environ.get("ASE_RETRIEVAL", "") == "fixed"
+DATA_DIR = ("data_hard" if HARD else "data") + ("_fixed" if FIXED else "")
+RUN_PREFIX = ("hard_" if HARD else "") + ("fixed_" if FIXED else "")
+
+CORE_SLOTS = ("device", "symptom", "trigger")  # slots that pick the article
+SLOTS = CORE_SLOTS + (("damage", "backup") if HARD else ())  # every slot the agent may ask about
 
 PLATFORMS = {
     "iphone": {"family": "phone", "label": "iPhone"},
@@ -163,6 +173,40 @@ PLATFORM_TERMS = {
     "router": "router gateway modem home Wi-Fi",
 }
 
+# ---- Hard world. Each mechanism copies a pattern from real carrier support KBs; all text is our own.
+# Fairness rule: every fact the oracle needs is in the opening, in a customer answer (at most 2 asks
+# per slot), or in the text of an article the agent has retrieved. ase/fairness.py checks this.
+GATED = {"wont_charge", "wont_power_on", "display_fault", "overheating"}  # article opens with a damage question
+# overheating is OOD: tests whether the model follows a gate it never saw in training
+DESTRUCTIVE = {"app_crashing", "battery_drain", "display_fault"}  # advanced fix erases the device
+BACKUP_DOC = "KB-905"
+TRIED_TEXT = [  # the customer reports the basic checks, so the advanced article applies
+    "I already restarted it and checked the settings",
+    "I've rebooted it twice and gone through the settings already",
+    "did the restart thing already and the settings look normal",
+]
+DEVICE_CLUE = {  # second answer from a customer who does not know the model
+    "iphone": "I get my apps from the App Store and it unlocks with Face ID",
+    "android": "I get my apps from the Google Play Store",
+    "windows": "it has the Windows key on the keyboard",
+    "mac": "there's an Apple logo in the top-left corner of the screen",
+}
+USE_WHEN = {
+    "wont_power_on": "the device shows no sign of power: no light, no sound, no vibration",
+    "display_fault": "the device still makes sounds or vibrates, but the screen stays dark",
+}
+if HARD:
+    SYMPTOMS["wont_power_on"] = {"platforms": ALL_PERSONAL, "triggers": None, "group": "screen"}
+    SYMPTOMS["display_fault"] = {"platforms": ALL_PERSONAL, "triggers": None, "group": "screen"}
+    # Customers describe what they observe, not the article name.
+    SYMPTOM_SPECIFIC["wont_power_on"] = ["it's completely dead, no lights or sounds or buzzing",
+                                         "nothing happens at all, no sound, no vibration"]
+    SYMPTOM_SPECIFIC["display_fault"] = ["I can still hear notifications and it buzzes, the screen is just dark",
+                                         "it rings and vibrates but the screen stays black"]
+    SYMPTOM_VAGUE["screen"] = ["the screen is black", "it's just a black screen now"]
+    SYMPTOM_TITLE["wont_power_on"] = "Black screen (no power)"
+    SYMPTOM_TITLE["display_fault"] = "Black screen (display fault)"
+
 
 @dataclass(frozen=True)
 class Article:
@@ -172,13 +216,37 @@ class Article:
     trigger: str | None
     title: str
     body: str
+    tier: str | None = None  # hard world: "basic" or "advanced"
 
     def attrs(self) -> dict:
         return {"device": self.platform, "symptom": self.symptom, "trigger": self.trigger}
 
 
+def _hard_body(plat: str, sym: str, trig: str | None, tier: str) -> str:
+    when = USE_WHEN.get(sym, SYMPTOM_TITLE[sym].lower()) + (f", {TRIGGER_TITLE[trig]}" if trig else "")
+    parts = [f"Applies to {PLATFORM_TERMS[plat]}. Use this when: {when}."]
+    if tier == "basic":
+        parts.append("Basic checks, for customers who have not tried a restart or a settings check yet.")
+    else:
+        parts.append("Advanced fix, only for customers who already tried a restart and a settings check.")
+    if sym in GATED:
+        parts.append("Before you start: ask whether the device was dropped or got wet. "
+                     "If yes, do not troubleshoot; escalate as physical_damage.")
+    erase = tier == "advanced" and sym in DESTRUCTIVE
+    if erase:
+        parts.append(f"CAUTION: this fix erases the device. Ask whether the data is backed up before you resolve. "
+                     f"If it is not, resolve with {BACKUP_DOC} (back up the device) instead.")
+    steps = (f"restart the device, then check {SETTINGS[plat]}" if tier == "basic"
+             else "back up, then erase and restore the device" if erase
+             else f"reset the {sym.replace('_', ' ')} settings in {SETTINGS[plat]}")
+    parts.append(f"Steps: {steps}.")
+    return " ".join(parts)
+
+
 def build_kb() -> list[Article]:
     """One article per (platform, symptom, trigger) cell, plus generic distractors."""
+    if HARD:
+        return _build_kb_hard()
     arts = []
     for sym, spec in SYMPTOMS.items():
         for plat, trig in itertools.product(spec["platforms"], spec["triggers"] or [None]):
@@ -199,6 +267,26 @@ def build_kb() -> list[Article]:
     return arts
 
 
+def _build_kb_hard() -> list[Article]:
+    """Two tiers per cell (basic checks, advanced fix), bodies with gates, plus distractors."""
+    arts = []
+    for sym, spec in SYMPTOMS.items():
+        for plat, trig in itertools.product(spec["platforms"], spec["triggers"] or [None]):
+            base = f"{PLATFORMS[plat]['label']}: {SYMPTOM_TITLE[sym]}" + (f" {TRIGGER_TITLE[trig]}" if trig else "")
+            for tier, suffix in (("basic", "basic checks"), ("advanced", "advanced fix")):
+                arts.append(Article(f"KB-{len(arts) + 100}", plat, sym, trig, f"{base} ({suffix})",
+                                    _hard_body(plat, sym, trig, tier), tier))
+    for i, t in enumerate(
+        ["Set up voicemail", "Transfer contacts to a new phone", "Set up email on your device",
+         "Change your Wi-Fi password", "Turn on two-factor authentication", "Back up your device"]
+    ):
+        arts.append(Article(f"KB-{900 + i}", "any", "other", None, t, f"How to {t.lower()} on any device."))
+    arts[-1] = Article(BACKUP_DOC, "any", "other", None, "Back up your device",
+                       "Use this when a customer must back up before a reset or erase. "
+                       "Steps: back up to the cloud or a computer, then confirm the backup finished.")
+    return arts
+
+
 @dataclass
 class Case:
     """Hidden truth plus what the customer has revealed so far."""
@@ -209,9 +297,13 @@ class Case:
     trigger: str | None
     escalation: str | None = None
     revealed: dict = field(default_factory=dict)  # slot -> "specific" | "family" | "vague" | None
+    extra: dict = field(default_factory=dict)  # hard world: tried, damaged, backed_up, vague_device
 
     def needs_trigger(self) -> bool:
         return bool(self.symptom and SYMPTOMS[self.symptom]["triggers"])
+
+    def tier(self) -> str:
+        return "advanced" if self.extra.get("tried") else "basic"
 
 
 def candidates(case: Case, kb: list[Article]) -> list[Article]:
@@ -234,17 +326,29 @@ def candidates(case: Case, kb: list[Article]) -> list[Article]:
             continue
         if case.revealed.get("trigger") == "specific" and a.trigger != case.trigger:
             continue
+        if a.tier and a.tier != case.tier():  # the opening always shows whether basic checks were tried
+            continue
         out.append(a)
     return out
 
 
 def discriminating_slots(cands: list[Article]) -> list[str]:
     """Slots whose answer would split the candidate set. Asking any of these is a useful question."""
-    return [s for s in SLOTS if len({a.attrs()[s] for a in cands}) > 1]
+    return [s for s in CORE_SLOTS if len({a.attrs()[s] for a in cands}) > 1]
 
 
 def gold_article(case: Case, kb: list[Article]) -> Article | None:
     for a in kb:
-        if (a.platform, a.symptom, a.trigger) == (case.platform, case.symptom, case.trigger):
+        if (a.platform, a.symptom, a.trigger) == (case.platform, case.symptom, case.trigger) and (
+            not a.tier or a.tier == case.tier()
+        ):
             return a
     return None
+
+
+def target_article(case: Case, kb: list[Article]) -> Article | None:
+    """The article the agent should resolve with: the gold one, or the backup article before an erase."""
+    gold = gold_article(case, kb)
+    if gold and gold.tier == "advanced" and gold.symptom in DESTRUCTIVE and not case.extra.get("backed_up", True):
+        return next(a for a in kb if a.doc_id == BACKUP_DOC)
+    return gold
