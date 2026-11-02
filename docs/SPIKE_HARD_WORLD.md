@@ -38,7 +38,20 @@ credit for surfacing the right *situation* (either tier), and the tier is scored
 
 Episodes (test, temperature 0): see the table filled in below.
 
-RESULTS_PLACEHOLDER
+| Policy (test episodes, temperature 0) | success | wrong fix | skipped check | q/case | wasted |
+|---|---|---|---|---|---|
+| oracle | 1.000 | 0.000 | 0.000 | 1.06 | 0 |
+| kimi-k3 | 0.903 | 0.061 | 0.055 | 1.06 | 0.11 |
+| gpt-oss-120b | 0.759 | 0.192 | 0.110 | 1.17 | 0.37 |
+| `ask_everything` (no LLM) | 0.559 | 0.626 | 0.007 | 3.55 | 2.62 |
+| `gate_follower` (no LLM) | 0.434 | 0.677 | 0.090 | 0.25 | 0.12 |
+| `blind_top_hit` (no LLM) | 0.041 | 0.869 | 0.048 | 0 | 0 |
+
+The hard world works: on v1 these models scored 0.899 and 0.972, so both dropped (−14 and −7
+points) and kimi is no longer at ceiling. Both still skip required checks (0.055 / 0.110) while
+resolving with the right article. Escalation, by contrast, is solved — both miss zero.
+No-LLM policies from `ase/probe.py` are well below both models, so the benchmark is measuring
+judgment and not just diligence.
 
 ## Splits
 - train: 649 cases / 2,094 states.
