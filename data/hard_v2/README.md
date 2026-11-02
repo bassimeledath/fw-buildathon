@@ -41,4 +41,5 @@ python -m ase.hard_v2 --case sos_switch --model accounts/fireworks/models/deepse
 python -m ase.hard_v2 --quick 1 --model accounts/fireworks/models/deepseek-v4p1-flash --reasoning-effort none   # one case per type
 ```
 
-**Baseline (deepseek-v4p1-flash, reasoning off):** about 60% on a 10-case check. The full-set number is pending.
+**Baseline (deepseek-v4p1-flash, reasoning off, temperature 0):** 62% dev, **64% test**, 63% overall (120 cases).
+Weakest: `nothing_works`, `already_on` and `sos_switch` (42% each), then `decoy` (50%).
