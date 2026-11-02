@@ -21,12 +21,17 @@ import time
 from pathlib import Path
 
 from .env import KB, RETRIEVER, ground_truth, new_state, parse_action, step, to_prompt
+from .harness import HARNESSES, DecideTalkPolicy, HarnessPolicy, JevPolicy
 from .world import DATA_DIR, HARD, RUN_PREFIX, Case
 
 MAX_STEPS = 12 if HARD else 8
 
 
 def load_cases(split: str, n: int | None):
+    if split == "dev":  # 100 train cases, for tuning the harness without touching the locked test set
+        rows = [json.loads(line) for line in open(f"{DATA_DIR}/train_episodes.jsonl")]
+        rows = random.Random(0).sample(rows, 100)
+        return rows[:n] if n else rows
     rows = [json.loads(line) for line in open(f"{DATA_DIR}/{split}_episodes.jsonl")]
     return rows[:n] if n else rows
 
@@ -84,6 +89,8 @@ async def run_episode(e: dict, policy) -> dict:
         done, outcome = step(state, action, RETRIEVER, rng)
         if done:
             break
+    else:
+        outcome = "max_steps"
     log["hidden"] = bool(e.get("extra", {}).get("damaged"))
     log.update(outcome=outcome, asks=asks, wasted_asks=wasted_asks, searches=searches)
     log["transcript"] = state.messages
@@ -129,6 +136,8 @@ async def amain(args):
         from .snapshot_policy import SnapshotPolicy
 
         policy = SnapshotPolicy(args.snapshot, temperature=args.temperature)
+    elif args.model == "jev":  # TypeSafe decision model; pair with --talker for the customer text
+        policy = JevPolicy(os.environ["JEV_API"])
     else:
         policy = LLMPolicy(
             args.model,
@@ -137,6 +146,12 @@ async def amain(args):
             args.temperature,
             args.max_tokens,
         )
+    if args.talker:  # --model decides, --talker writes the customer-facing text
+        talker = LLMPolicy(args.talker, os.environ.get("OPENAI_BASE_URL", "https://api.fireworks.ai/inference/v1"),
+                           os.environ["FIREWORKS_API_KEY"], args.temperature, args.max_tokens)
+        policy = DecideTalkPolicy(policy, talker)
+    if args.harness != "base":
+        policy = HarnessPolicy(policy, args.harness)
     sem = asyncio.Semaphore(args.concurrency)
 
     async def one(e):
@@ -149,6 +164,10 @@ async def amain(args):
 
     logs = await asyncio.gather(*[one(e) for e in cases])
     summary = summarize(logs)
+    inner = getattr(policy, "inner", policy)
+    if isinstance(inner, DecideTalkPolicy):  # per-model tokens, so cost per case can use each model's price
+        summary["tokens_by_model"] = {"decider": [args.model, *inner.usage["decider"]],
+                                      "talker": [args.talker, *inner.usage["talker"]]}
     tag = args.tag or (args.policy if args.policy == "oracle" else (args.snapshot or args.model).split("/")[-1])
     out = Path("runs") / f"{RUN_PREFIX}episodes_{args.split}_{tag}"
     out.mkdir(parents=True, exist_ok=True)
@@ -169,6 +188,8 @@ def main():
     ap.add_argument("--concurrency", type=int, default=8)
     ap.add_argument("--temperature", type=float, default=0.0)
     ap.add_argument("--max-tokens", type=int, default=2048)
+    ap.add_argument("--harness", default="base", choices=HARNESSES, help="prompt variant (ase/harness.py)")
+    ap.add_argument("--talker", default="", help="model that writes the customer text; --model then only decides")
     ap.add_argument("--tag", default="")
     asyncio.run(amain(ap.parse_args()))
 
