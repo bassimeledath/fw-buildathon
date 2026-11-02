@@ -69,6 +69,7 @@ PROMPTS = {
     "h1": H1_PROMPT,
     "kport": hv.SYSTEM + K_PORT,
     "krhythm": hv.SYSTEM + K_RHYTHM,
+    "kabir": hv.SYSTEM + K_PORT + K_RHYTHM,  # both of Kabir's rules
     # combined: h1 already covers v2port (rules 2, 4, 10), so add only Kabir's step/verify rhythm rule
     "h1k": H1_PROMPT + "\n11. Step vs verify:" + K_RHYTHM.removeprefix("\n-"),
 }
