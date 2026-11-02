@@ -23,11 +23,15 @@ problem changes (e.g. SOS); verify before closing; `fix_failed` when the ladder 
 
 ## Results so far (dev, 50 cases, deepseek-v4p1-flash, reasoning off, temperature 0)
 
+**These numbers are from hard_v2 before 954d06e**, when every past turn kept its 8 search results in context. Since
+954d06e only the latest results stay, which changes what the model sees. Re-run base, h1 and h1 + guard2 on the current
+version before comparing; mixing versions is not a fair comparison.
+
 | Harness | Dev success | Tokens / case | McNemar p vs base |
 | --- | --- | --- | --- |
-| base | 62% | 122k | |
-| h1 | 66% | 111k | 0.754 |
-| h1 + guard | 66% (guard never fired) | 108k | |
+| base | 62% | 122k (old context) | |
+| h1 | 66% | 111k (old context) | 0.754 |
+| h1 + guard | 66% (guard never fired) | 108k (old context) | |
 | h1 + guard2 | TODO | TODO | TODO |
 
 13 of h1's 17 failures were repeating a fix the customer already did (8) and handing off instead of switching
@@ -42,4 +46,4 @@ python -m ase.harness_v2 --split dev --model $M --prompt h1 --guard2
 python -m ase.stats runs/hard_v2_harness_dev_base_*/logs.jsonl runs/hard_v2_harness_dev_h1-guard2_*/logs.jsonl
 ```
 
-About $2.3 per 50-case run: every customer turn re-sends 8 long articles.
+Before 954d06e a 50-case run cost about $2.3 because every turn re-sent all earlier search results; it should be much cheaper now.
