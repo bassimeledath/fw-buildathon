@@ -109,3 +109,41 @@ the bill out loud.
 ## Things to cut if time is short
 DPO, the consult action, and the persona paraphrase. Keep the diagnosis, RS-SFT vs GRPO, the
 pass curves, the router bar and the cost slide.
+
+# Mapped to the organizers' rubric (from their sample submission)
+| Criterion | Weight | What we show | Where we would lose points / TODO |
+|---|---|---|---|
+| Benchmark evaluation | 40% | Same open model before and after (qwen3p8-27b base vs LoRA). Locked held-out set at temperature 0 with identical prompts. McNemar plus case-clustered bootstrap (`ase/stats.py`). An OOD split. Harness alternatives scored on the same set, losses reported. | Synthetic labels (their sample prized a published dataset). One seed so far. The test set is only 109 cases and needs about 300 cases / 1,000 states. |
+| Business value | 25% | A named user: carrier and device tech support, where wrong fixes and wasted questions cost handle time and repeat contacts. Value math with the assumptions written out. | **TODO:** public numbers (BLS customer-service reps, cost per contact, repeat-contact rate), each assumption labeled. Evidence that frontier models over-answer: our baselines plus the papers in `PLAN.md`. |
+| Technical execution | 20% | Code reward, oracle labels, multi-turn eval, serverless GRPO, snapshot sampling. The data bug we found and fixed (the "not charging" phrase). | Hyperparameter sweep, serving latency and cost (deploy the LoRA). |
+| Presentation & demo | 10% | A 60 s video: base model resolves with the wrong-device article; the trained model asks "iPhone or Android?" and resolves right; then the McNemar/bootstrap chart. | Record the video by 3:00. |
+| Documentation | 5% | README with run order and the disclosure. | Pin dependencies. **Make the repo public** before submitting and check it in an incognito window. |
+
+## The harness ideas to run on the same locked set (report the losses)
+1. **A: strong prompt.** Few-shot examples, plus the rule "if results show the same symptom for
+   different devices or triggers, ask first." Also run it with structured JSON output.
+2. **B: A, 5 samples at temperature 0.7, majority vote.** About 5× the cost.
+3. **C: KB catalog in the prompt** (all 71 titles). The upper-bound harness; report its token cost.
+4. **Fine-tunes:** rejection-sampling SFT, and GRPO (`ase.train_serverless`).
+
+## Overnight stats (smoke run, old data, temperature 0; shows the method, not the final claim)
+
+| Split | Comparison | Accuracy | McNemar p | 95% CI | Verdict |
+|---|---|---|---|---|---|
+| test (n=109) | base vs step 7 | 95.4% → 97.2% | 0.69 | [−2.8, +6.4] | Indistinguishable: the base is at ceiling. |
+| OOD (n=92) | base vs step 4 | 72.8% → 87.0% (+14.1) | 0.002 | [+6.5, +22.8] | Real gain. |
+
+On the OOD comparison, the trained model won 15 of the 17 cases where the two disagreed.
+Caveat: wrong fixes also rose there, and part of the base's failures came from the data bug that
+has since been fixed.
+
+## Day timeline (organizers' suggestion, adapted)
+| Time | Step |
+|---|---|
+| 10:30 | Regenerate a bigger test set (about 300 cases). Lock it. Run baselines on base and frontier at temperature 0, with one saved row per case. |
+| 11:15 | Base pass curve at k=8, which gives the quadrant. Calibrate the train band with the base snapshot. |
+| By 12:00 | Launch GRPO in the background (and RS-SFT). |
+| 12:00 | Run harnesses A, B and C on the locked set while training runs. Draft the business case. |
+| 1:30 | Score everything on the same set. Run `ase.stats`. Make the charts. Deploy the best LoRA for latency and cost. |
+| 2:30 | Write the README, record the video, make the repo public. |
+| 3:30 | Submit. |
