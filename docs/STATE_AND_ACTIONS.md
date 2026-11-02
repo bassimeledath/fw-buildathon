@@ -40,6 +40,32 @@ one of four moves, and each move is a statement about where the conversation is:
 
 Because the agent has to name where it is, it can't skip ahead to a fix while it's still unsure.
 
+## Using a separate decision model for the checklist
+
+Picking the move is a different job from writing a friendly reply. So our plan is for the main
+harness to hand that choice to a small, separate **decision model**. That model reads the
+conversation and doesn't write anything: it just picks the move (hand off, ask, fix or look it up)
+and its detail (why we're handing off, what to ask, which article), with a confidence for each. The
+main model then writes the message to the customer.
+
+**We tried it.** We gave a small open decision model (0.8B parameters, no training on our data) 298
+saved points in conversations from our test set and asked it to pick the next move. We tested it on
+its own, not inside the harness yet.
+
+- **Right move on 59% of turns.**
+- **Strong when it's time to ask:** it asked on 86–97% of the turns where asking was right.
+- **Handing off:** it handed off on 19 of 26 turns that needed a person, and named the right reason
+  on all 26.
+- **Picking the article:** when it was time to fix, it picked the right article 90% of the time,
+  against 63% for just taking the top search result.
+- **Cautious, not reckless:** its most common mistake was asking another question when it could
+  have fixed (25 of 82) or should have searched (72 of 83). It gave a fix at the wrong moment on
+  only 5% of turns.
+- **Fast:** about 1.5 seconds per decision.
+
+So a small model can already read where the conversation is fairly well, and when it's wrong it
+mostly errs toward asking, not toward a wrong fix. Its main gap is knowing when to search.
+
 ## Why this works
 
 - **Fewer wrong fixes.** The agent gives a fix only once the facts point to exactly one answer.
