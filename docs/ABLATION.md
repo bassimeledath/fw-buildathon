@@ -5,10 +5,13 @@ stages** — the shard decision uses a side RNG keyed on `case_id` and rollouts 
 seed, so every config holds the same 157 cases with the same hidden truth and seeds. McNemar across
 stages is therefore valid.
 
-| Config | gpt-oss-120b | kimi-k3 | oracle | `ask_everything` (no LLM) |
-|---|---|---|---|---|
-| hard (baseline) | 0.796 | 0.917 | 1.000 | 0.535 |
-| hard + shard | 0.815 | 0.924 | 1.000 | 0.535 |
+| Config | gpt-oss-120b | kimi-k3 | gap | oracle | `ask_everything` (no LLM) |
+|---|---|---|---|---|---|
+| hard (baseline) | 0.796 | 0.917 | 12.1 | 1.000 | 0.535 |
+| hard + shard (null, dropped) | 0.815 | 0.924 | 10.9 | 1.000 | 0.535 |
+| **hard + budget 6** | **0.688** | **0.892** | **20.4** | 1.000 | **0.236** |
+
+Sharding is off by default and is not carried forward; `hard` is the base for later stages.
 
 ## Stage 1 — sharding: **no effect** (null result)
 
@@ -63,3 +66,40 @@ completed search on the wrong cell and is the same machinery with a different pa
 
 The sharding code is sound and stays behind `ASE_SHARD=1`; it is a measured negative result, kept and
 reported rather than tuned until it showed a drop.
+
+## Stage 2 — turn budget (`ASE_BUDGET=6`): **works, and discriminates**
+
+The customer abandons the chat after 6 agent turns; running out is a terminal `abandoned` outcome, not
+a silent cap. Eval-time only, so it shares `data_hard/` and appears in `RUN_PREFIX` alone.
+
+| Model | base → budget 6 | McNemar p | 95% CI |
+|---|---|---|---|
+| gpt-oss-120b | 79.6% → **68.8%** | **0.000221** | [−16.6, −5.7] |
+| kimi-k3 | 91.7% → 89.2% | 0.289 | [−6.4, +0.6] |
+
+**The open model loses 4x what the frontier model does**, widening the gap from 12.1 to 20.4 points.
+That is the point: the budget charges for wasted questions, and gpt-oss wastes 0.59 per case against
+kimi's 0.11. Abandonment rates follow — 0.14 vs 0.038.
+
+### Calibrating N
+
+N=6 is uniquely correct: the largest N that closes the exploit and the smallest at which the oracle is
+still perfect.
+
+| N | oracle | `ask_everything` | verdict |
+|---|---|---|---|
+| 4 | 0.885 | 0.166 | oracle fails — unfair |
+| 5 | 0.981 | 0.236 | oracle fails — unfair |
+| **6** | **1.000** | **0.236** | **chosen** |
+| 7 | 1.000 | 0.535 | no effect |
+
+`ask_everything` needs exactly 7 turns on 114 of 157 cases (5 asks + search + resolve) while the oracle
+never exceeds 6, so the separation is structural rather than tuned. It drops 0.535 → 0.236 and
+**closes F4** — over-asking is no longer free on the headline metric. `gate_follower` is unaffected
+(0.357, max 4 turns), as expected.
+
+### A prediction I got wrong
+
+From the means — gpt-oss ~3.5 agent turns, kimi ~3.2, both well under 6 — I expected the budget not to
+touch the models. It cost gpt-oss 10.8 points. **Means hide the tail**: 14% of its episodes run past 6
+turns. Calibrate budgets on the distribution, not the average.

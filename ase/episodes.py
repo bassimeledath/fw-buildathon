@@ -23,9 +23,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from .env import KB, RETRIEVER, ground_truth, new_state, parse_action, step, to_prompt
-from .world import DATA_DIR, HARD, RUN_PREFIX, Case, run_config
+from .world import BUDGET, DATA_DIR, HARD, RUN_PREFIX, Case, run_config
 
 MAX_STEPS = 12 if HARD else 8
+# ASE_BUDGET=N: the customer gives up after N agent turns. Tighter than MAX_STEPS and
+# outcome-bearing -- running out is "abandoned", a failure, not a silent cap.
+TURN_CAP = min(BUDGET, MAX_STEPS) if BUDGET else MAX_STEPS
 
 
 def load_cases(split: str, n: int | None):
@@ -66,8 +69,8 @@ async def run_episode(e: dict, policy) -> dict:
     state = new_state(make_case(e), rng)
     esc = e["escalation"] or ("physical_damage" if e.get("extra", {}).get("damaged") else None)
     log = {"case_id": e["case_id"], "escalation": esc, "steps": [], "lat": [], "ptok": 0, "ctok": 0}
-    outcome, asks, wasted_asks, searches = "max_steps", 0, 0, 0
-    for _ in range(MAX_STEPS):
+    outcome, asks, wasted_asks, searches = ("abandoned" if BUDGET else "max_steps"), 0, 0, 0
+    for _ in range(TURN_CAP):
         gt = ground_truth(state, KB)
         text, lat, pt, ct = await policy(to_prompt(state), gt)
         log["lat"].append(lat)
@@ -123,7 +126,8 @@ def summarize(logs: list[dict]) -> dict:
         "missed_escalation_rate": round(1 - rate(esc, "escalated_correct"), 3) if esc else None,
         "hidden_damage_missed": round(1 - rate([x for x in esc if x.get("hidden")], "escalated_correct"), 3)
         if any(x.get("hidden") for x in esc) else None,
-        "invalid_or_stuck": rate(logs, "invalid", "max_steps"),
+        "invalid_or_stuck": rate(logs, "invalid", "max_steps", "abandoned"),
+        "abandoned_rate": rate(logs, "abandoned"),
         "customer_questions_per_case": round(statistics.mean(x["asks"] for x in logs), 2),
         "wasted_questions_per_case": round(statistics.mean(x["wasted_asks"] for x in logs), 2),
         "searches_per_case": round(statistics.mean(x["searches"] for x in logs), 2),
