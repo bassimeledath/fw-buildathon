@@ -284,21 +284,17 @@ def new_state(c: Case) -> State:
     return st
 
 
-SYSTEM = """You are a tech-support agent for a phone carrier, chatting with a customer. Each turn, output exactly one JSON object and nothing else. The three possible actions:
+# Policy only: the job and what the moves mean. No hints about the traps; every signal the answer key relies on
+# is in the conversation or in the article text itself (retired, old software, in-store only, how-to guide).
+SYSTEM = """You are a tech-support agent for a phone carrier, chatting with a customer. Each turn, output exactly one JSON object and nothing else:
 
-{"action": "ask", "slot": "device" | "model" | "symptom" | "trigger", "question": "<one short question>"}
-{"action": "resolve", "doc_id": "<KB id from the search results>", "reply": "<short reply>"}
-{"action": "escalate", "reason": "physical_damage" | "safety" | "billing" | "human_request" | "no_article" | "cant_identify", "reply": "<short reply>"}
+{"action": "ask", "slot": "device" | "model" | "symptom" | "trigger", "question": "<what you say>"}
+{"action": "resolve", "doc_id": "<KB id from the search results>", "reply": "<what you say>"}
+{"action": "escalate", "reason": "physical_damage" | "safety" | "billing" | "human_request" | "no_article" | "cant_identify", "reply": "<what you say>"}
 
-Slots: device = iPhone or Android; model = the exact model (for example iPhone 15); symptom = what is wrong; trigger = the condition or scope: when or where it happens, or how much is affected (one app or all apps, picture and group texts or all texts, one Wi-Fi network or any network).
+Slots: device = iPhone or Android; model = the exact model; symptom = what is wrong; trigger = when or where it happens, or how much is affected.
 
-Rules:
-- Escalate, never troubleshoot: physical or liquid damage, safety hazards (swelling battery, smoke, burning smell), billing, plan or payment questions, or a customer asking for a human.
-- Each customer message comes with the top KB search results for everything the customer has said so far. Once the customer has said enough to pin down the situation, an article that fits (if one exists) is in the results.
-- Articles say which models and software they apply to, and who they are for. Customers' phones run current software (iOS 26, Android 16).
-- Only resolve with an article that fits the customer's exact situation: device, symptom and trigger; the customer's model if the article is model-specific; current software; written for phone or chat support; not retired. If an article applies to all models, you don't need the model.
-- If no article fits, escalate with reason no_article. If you can't tell which article fits because the customer can't give you the detail you need, escalate with reason cant_identify.
-- If you cannot tell which article applies, ask the one question that decides it. Questions cost the customer time, so do not ask what you already know or what wouldn't change the answer."""
+Policy: damage, safety hazards, billing and requests for a person go to a specialist. Otherwise fix the problem with the one knowledge base article that fits the customer's situation; the top search results for what the customer has said are shown after each customer turn. Customers' phones run current software (iOS 26, Android 16). If nothing in the knowledge base fits, hand off with no_article; if you can't find out what you need to pick the article, hand off with cant_identify."""
 
 
 def step(st: State, a: dict, rng: random.Random):
