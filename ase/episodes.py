@@ -20,8 +20,10 @@ import statistics
 import time
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from .env import KB, RETRIEVER, ground_truth, new_state, parse_action, step, to_prompt
-from .world import DATA_DIR, HARD, RUN_PREFIX, Case
+from .world import DATA_DIR, HARD, RUN_PREFIX, Case, run_config
 
 MAX_STEPS = 12 if HARD else 8
 
@@ -81,8 +83,9 @@ async def run_episode(e: dict, policy) -> dict:
             wasted_asks += action.get("slot") not in gt["allowed"].get("ask", {}).get("slots", [])
         searches += action.get("action") == "search"
         log["steps"].append(action)
-        done, outcome = step(state, action, RETRIEVER, rng)
-        if done:
+        done, step_outcome = step(state, action, RETRIEVER, rng)
+        if done:  # only a terminal step sets the outcome; otherwise "max_steps" must survive the loop
+            outcome = step_outcome
             break
     log["hidden"] = bool(e.get("extra", {}).get("damaged"))
     log.update(outcome=outcome, asks=asks, wasted_asks=wasted_asks, searches=searches)
@@ -94,6 +97,8 @@ def summarize(logs: list[dict]) -> dict:
     api_errors = sum(x["outcome"] == "api_error" for x in logs)
     logs = [x for x in logs if x["outcome"] != "api_error"]  # scored on the cases the model actually saw
     n = len(logs)
+    if not n:  # every case errored (e.g. a bad model id): say so instead of crashing on an empty mean
+        return {"n": 0, "api_errors": api_errors}
     fix = [x for x in logs if not x["escalation"]]
     esc = [x for x in logs if x["escalation"]]
 
@@ -107,6 +112,12 @@ def summarize(logs: list[dict]) -> dict:
         "success": rate(logs, "resolved_correct", "escalated_correct"),
         "fix_rate": rate(fix, "resolved_correct"),
         "wrong_fix_rate": rate(fix, "resolved_wrong"),
+        # wrong_fix_rate is a rate over ALL fixable cases, so never resolving scores a perfect 0.
+        # Read it next to this: no_resolve_rate is the share of fixable cases the agent never
+        # attempted to fix at all (false escalation, invalid, or ran out of turns).
+        "no_resolve_rate": round(
+            sum(not x["outcome"].startswith("resolved") for x in fix) / max(1, len(fix)), 3
+        ),
         "skipped_check_rate": rate(logs, "resolved_skipped_check"),
         "false_escalation_rate": rate(fix, "escalated_wrong"),
         "missed_escalation_rate": round(1 - rate(esc, "escalated_correct"), 3) if esc else None,
@@ -152,11 +163,14 @@ async def amain(args):
     tag = args.tag or (args.policy if args.policy == "oracle" else (args.snapshot or args.model).split("/")[-1])
     out = Path("runs") / f"{RUN_PREFIX}episodes_{args.split}_{tag}"
     out.mkdir(parents=True, exist_ok=True)
-    (out / "summary.json").write_text(json.dumps(summary, indent=2))
+    (out / "summary.json").write_text(json.dumps({"config": run_config(), **summary}, indent=2))
     with open(out / "logs.jsonl", "w") as f:
         for x in logs:
             f.write(json.dumps(x) + "\n")
     print(json.dumps({"tag": tag, **summary}, indent=2))
+
+
+load_dotenv()
 
 
 def main():

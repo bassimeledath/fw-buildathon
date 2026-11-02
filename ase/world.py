@@ -15,8 +15,40 @@ HARD = os.environ.get("ASE_WORLD", "") == "hard"
 # ASE_RETRIEVAL=fixed is the simple baseline: no search action. The environment searches the customer's
 # words after every customer message and shows the top results; the model picks resolve / ask / escalate.
 FIXED = os.environ.get("ASE_RETRIEVAL", "") == "fixed"
-DATA_DIR = ("data_hard" if HARD else "data") + ("_fixed" if FIXED else "")
-RUN_PREFIX = ("hard_" if HARD else "") + ("fixed_" if FIXED else "")
+
+# ---- Staged difficulty mechanisms, added one at a time (docs/HARDER_EVAL_DESIGN.md).
+# ASE_SHARD=1: a decisive fact is withheld from the opening and volunteered later, after the agent
+# has committed to a direction, so the gold article changes mid-episode.
+SHARD = os.environ.get("ASE_SHARD", "") == "1"
+# ASE_NOISE_FACTS=1: plausible but irrelevant details in the opening and in customer answers.
+NOISE_FACTS = os.environ.get("ASE_NOISE_FACTS", "") == "1"
+# ASE_BUDGET=N: the customer abandons the chat after N agent turns. Eval-time only -- it does not
+# change what the correct action is at any state, so it is NOT part of DATA_DIR.
+BUDGET = int(os.environ.get("ASE_BUDGET", "") or 0)
+# ASE_TYPOS=1: build_dataset also writes *_noisy_* splits with keyboard-adjacent typos in the
+# customer's text. A separate split, never folded into the headline set, so it is not in DATA_DIR.
+TYPOS = os.environ.get("ASE_TYPOS", "") == "1"
+
+# World/data-shaping flags go in DATA_DIR; every flag goes in RUN_PREFIX so results never collide.
+DATA_DIR = (("data_hard" if HARD else "data") + ("_fixed" if FIXED else "")
+            + ("_s" if SHARD else "") + ("_n" if NOISE_FACTS else ""))
+RUN_PREFIX = (("hard_" if HARD else "") + ("fixed_" if FIXED else "")
+              + ("s_" if SHARD else "") + ("n_" if NOISE_FACTS else "") + (f"b{BUDGET}_" if BUDGET else ""))
+# Stamped into every summary.json so an ablation row can never be misattributed to the wrong config.
+CONFIG = {"world": "hard" if HARD else "v1", "retrieval": "fixed" if FIXED else "search", "shard": SHARD,
+          "noise_facts": NOISE_FACTS, "budget": BUDGET, "typos": TYPOS, "data_dir": DATA_DIR}
+
+
+def run_config() -> dict:
+    """CONFIG plus the commit the numbers came from. Lazy: never run git at import time."""
+    import subprocess
+
+    try:
+        sha = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True,
+                             timeout=5).stdout.strip() or None
+    except Exception:
+        sha = None
+    return {**CONFIG, "git_sha": sha}
 
 CORE_SLOTS = ("device", "symptom", "trigger")  # slots that pick the article
 SLOTS = CORE_SLOTS + (("damage", "backup") if HARD else ())  # every slot the agent may ask about

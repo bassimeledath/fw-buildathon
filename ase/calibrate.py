@@ -19,10 +19,13 @@ import random
 import statistics
 from pathlib import Path
 
+from dotenv import load_dotenv
 from openai import AsyncOpenAI
 
 from .reward import score
-from .world import DATA_DIR, RUN_PREFIX
+from .world import DATA_DIR, RUN_PREFIX, run_config
+
+load_dotenv()  # same as the training entry points: FIREWORKS_API_KEY may live in .env
 
 
 async def amain(a):
@@ -90,7 +93,7 @@ async def amain(a):
         "by_allowed_action": {k: {"n": len(v), "mean_reward": round(statistics.mean(v), 3)} for k, v in by_kind.items()},
         "band_0.2_0.8": len(band), "too_easy": too_easy, "too_hard": too_hard,
     }
-    (out / "summary.json").write_text(json.dumps(summary, indent=2))
+    (out / "summary.json").write_text(json.dumps({"config": run_config(), **summary}, indent=2))
     print(json.dumps(summary, indent=2))
     if a.write_band and band:
         with open(f"{DATA_DIR}/train_rl.jsonl", "w") as f:
