@@ -67,7 +67,7 @@ def main():
     dev_ids = {c.case_id for c in sample_cases(12, DEV_SEED)}
     rows = [r for c in train_cases for r in rollout_states(c, rng)]
     # held-out states for the trainer's own eval come from fresh cases on yet another seed
-    held = [r for c in sample_cases(4, 202) for r in rollout_states(c, rng, p_mistake=0.0)]
+    held = [r for c in sample_cases(4, 202) for r in rollout_states(c, rng)]  # same 1-in-5 agent mistakes as training
     d = Path("data/hard_v2/train")
     d.mkdir(parents=True, exist_ok=True)
     (d / "train_states.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
