@@ -108,9 +108,14 @@ def _last_json(text: str) -> str:
 
 
 class Policy:
-    def __init__(self, model, prompt, guard, reasoning_effort, max_tokens, guard2=False):
+    def __init__(self, model, prompt, guard, reasoning_effort, max_tokens, guard2=False, snapshot=None):
         from openai import AsyncOpenAI
 
+        self.snap = None
+        if snapshot:  # a qwen training snapshot, sampled token-in/token-out (needs fw-cookbook on PYTHONPATH)
+            from .snapshot_policy import SnapshotPolicy
+
+            self.snap = SnapshotPolicy(snapshot, temperature=0.0, max_tokens=512)
         self.client = AsyncOpenAI(base_url=os.environ.get("OPENAI_BASE_URL", "https://api.fireworks.ai/inference/v1"),
                                   api_key=os.environ["FIREWORKS_API_KEY"], max_retries=8)
         self.model, self.prompt, self.guard, self.max_tokens = model, PROMPTS[prompt], guard, max_tokens
@@ -119,6 +124,12 @@ class Policy:
         self.guard2, self.repeat_fired, self.handoff_fired, self.g2_changed = guard2, 0, 0, 0
 
     async def _call(self, messages):
+        if self.snap:
+            text, _lat, pt, ct = await self.snap(messages, None)
+            self.calls += 1
+            self.ptok += pt
+            self.ctok += ct
+            return text
         r = await self.client.chat.completions.create(model=self.model, messages=messages, temperature=0,
                                                       max_tokens=self.max_tokens, **self.extra)
         self.calls += 1
@@ -165,11 +176,32 @@ def load_cases(split: str) -> list:
     return out
 
 
+def write_train(prompt: str):
+    """Copy Bassim's hard_v2 train/heldout states with the system prompt swapped for this harness's prompt, so RL
+    trains the model under the same prompt the harness uses at inference. Same states, same answer key."""
+    for name in ("train_states", "heldout_states"):
+        src = Path(f"data/hard_v2/train/{name}.jsonl")
+        dst = src.with_name(f"{name}_{prompt}.jsonl")
+        n = 0
+        with open(src) as f, open(dst, "w") as g:
+            for line in f:
+                r = json.loads(line)
+                assert r["messages"][0]["role"] == "system"
+                r["messages"][0]["content"] = PROMPTS[prompt]
+                g.write(json.dumps(r) + "\n")
+                n += 1
+        print(f"wrote {dst} ({n} states)")
+
+
 async def amain(args):
     cases = load_cases(args.split)
     if args.n:
         cases = cases[: args.n]
-    policy = Policy(args.model, args.prompt, args.guard, args.reasoning_effort, args.max_tokens, guard2=args.guard2)
+    if args.write_train:
+        write_train(args.prompt)
+        return
+    policy = Policy(args.model, args.prompt, args.guard, args.reasoning_effort, args.max_tokens, guard2=args.guard2,
+                    snapshot=args.snapshot)
     sem = asyncio.Semaphore(args.concurrency)
 
     async def one(c):
@@ -190,7 +222,8 @@ async def amain(args):
         if not x["clean"] and x["outcome"] in ("resolved_correct", "escalated_correct"):
             x["outcome"] = "unclean_" + x["outcome"]
     name = args.prompt + ("-guard" if args.guard else "") + ("-guard2" if args.guard2 else "")
-    out = Path("runs") / f"hard_v2_harness_{args.split}_{name}_{args.model.split('/')[-1]}_re-{args.reasoning_effort}"
+    who = args.snapshot.split("/")[-1] if args.snapshot else f"{args.model.split('/')[-1]}_re-{args.reasoning_effort}"
+    out = Path("runs") / f"hard_v2_harness_{args.split}_{name}_{who}"
     out.mkdir(parents=True, exist_ok=True)
     (out / "logs.jsonl").write_text("".join(json.dumps(x, default=str) + "\n" for x in logs))
     summary = {
@@ -219,6 +252,9 @@ def main():
     ap.add_argument("--guard2", action="store_true",
                     help="code checks: don't repeat a fix the customer already did; self-check before fix_failed")
     ap.add_argument("--reasoning-effort", default="none")  # same as the published baseline
+    ap.add_argument("--snapshot", default=None, help="evaluate a qwen training snapshot instead of --model")
+    ap.add_argument("--write-train", action="store_true",
+                    help="write data/hard_v2/train/{train,heldout}_states_<prompt>.jsonl with this prompt, then exit")
     ap.add_argument("--n", type=int, default=None, help="first N cases only (smoke test)")
     ap.add_argument("--concurrency", type=int, default=6)
     ap.add_argument("--max-tokens", type=int, default=1024)  # same as ase.hard_v2

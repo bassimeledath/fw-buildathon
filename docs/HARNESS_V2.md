@@ -47,3 +47,17 @@ python -m ase.stats runs/hard_v2_harness_dev_base_*/logs.jsonl runs/hard_v2_harn
 ```
 
 Before 954d06e a 50-case run cost about $2.3 because every turn re-sent all earlier search results; it should be much cheaper now.
+
+## Harness + RL (experiment)
+
+Bassim's RL run trains qwen3p8-27b under the published prompt. This variant trains under the h1 prompt instead, then
+evaluates with h1 + guard2, to test whether prompt, code checks and RL stack. Same train states and answer key; only
+the system message differs.
+
+```bash
+python -m ase.harness_v2 --prompt h1 --write-train      # -> data/hard_v2/train/{train,heldout}_states_h1.jsonl
+PYTHONPATH=.:<fw-cookbook> python -m ase.train_serverless --env hard_v2 \
+  --train data/hard_v2/train/train_states_h1.jsonl --heldout data/hard_v2/train/heldout_states_h1.jsonl \
+  --run-dir runs/rl_v2_h1
+PYTHONPATH=.:<fw-cookbook> python -m ase.harness_v2 --split dev --prompt h1 --guard2 --snapshot <final snapshot>
+```
